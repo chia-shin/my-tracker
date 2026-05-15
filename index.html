@@ -10,12 +10,15 @@
         h1 { font-size: 20px; text-align: center; color: #4472C4; margin-bottom: 15px; }
         .box { background-color: #f8f9fa; border: 1px solid #dddddd; padding: 12px; border-radius: 8px; margin-bottom: 15px; }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         label { display: block; font-size: 13px; color: #666666; margin: 8px 0 3px 0; font-weight: bold; }
         input, select { width: 100%; padding: 10px; border: 1px solid #cccccc; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; background-color: #4472C4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin-top: 12px; }
         .item { padding: 10px; border-bottom: 1px solid #eeeeee; font-size: 14px; }
         .tag { background-color: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .badge { color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .roi-up { color: #e74c3c; font-weight: bold; }
+        .roi-down { color: #2ecc71; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -34,8 +37,14 @@
                 <div id="stat-value" style="font-size: 18px; font-weight: bold; color: #f39c12;">$0</div>
             </div>
             <div>
-                <label>累計淨投入</label>
+                <label>累計淨投入成本</label>
                 <div id="stat-net" style="font-size: 18px; font-weight: bold; color: #333333;">$0</div>
+            </div>
+        </div>
+        <div class="row" style="margin-top: 5px; border-top: 1px dashed #ddd; padding-top: 5px;">
+            <div>
+                <label>預估未實現損益 / 報酬率</label>
+                <div id="stat-roi" style="font-size: 16px; font-weight: bold;">$0 (0.00%)</div>
             </div>
         </div>
     </div>
@@ -51,17 +60,28 @@
         
         <label>交易類型</label>
         <select id="form-type" onchange="toggleFields()">
-            <option value="deposit">存款 / 投入金額</option>
-            <option value="withdraw">提款 / 贖回金額</option>
-            <option value="value_update">更新最新市值</option>
+            <option value="deposit">買入 (投入金額)</option>
+            <option value="withdraw">賣出 (贖回金額)</option>
+            <option value="value_update">更新最新現價 (現值)</option>
         </select>
 
-        <div id="amt-group">
-            <label id="amt-label">金額</label>
-            <input type="number" id="form-amount" placeholder="輸入金額" inputmode="decimal">
+        <!-- 買入賣出時顯示的股數與單價 -->
+        <div id="trade-group" class="grid-3">
+            <div>
+                <label id="lbl-p1">買入單價</label>
+                <input type="number" id="form-price" placeholder="價格" inputmode="decimal" oninput="calcTotal()">
+            </div>
+            <div>
+                <label id="lbl-p2">買入股數</label>
+                <input type="number" id="form-shares" placeholder="股數" inputmode="decimal" oninput="calcTotal()">
+            </div>
+            <div>
+                <label>計算總金額</label>
+                <input type="number" id="form-amount" placeholder="總額" inputmode="decimal">
+            </div>
         </div>
 
-        <label>說明</label>
+        <label>說明備註</label>
         <input type="text" id="form-desc" placeholder="摘要備註">
 
         <button onclick="addRecord()">確認儲存</button>
@@ -73,16 +93,50 @@
     </div>
 
     <script>
-        var records = JSON.parse(localStorage.getItem('multi_records_v2')) || [];
+        var records = JSON.parse(localStorage.getItem('multi_records_v3')) || [];
         document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
 
         function toggleFields() {
             var type = document.getElementById('form-type').value;
-            document.getElementById('amt-label').innerText = (type === 'value_update') ? '該標的最新總市值' : '金額';
+            var priceInput = document.getElementById('form-price');
+            var sharesInput = document.getElementById('form-shares');
+            var amtInput = document.getElementById('form-amount');
+            
+            // 清空暫存
+            priceInput.value = ''; sharesInput.value = ''; amtInput.value = '';
+
+            if (type === 'value_update') {
+                document.getElementById('lbl-p1').innerText = '最新現價';
+                document.getElementById('lbl-p2').innerText = '現有總股數';
+                sharesInput.placeholder = "非必填";
+            } else if (type === 'withdraw') {
+                document.getElementById('lbl-p1').innerText = '賣出單價';
+                document.getElementById('lbl-p2').innerText = '賣出股數';
+                sharesInput.placeholder = "股數";
+            } else {
+                document.getElementById('lbl-p1').innerText = '買入單價';
+                document.getElementById('lbl-p2').innerText = '買入股數';
+                sharesInput.placeholder = "股數";
+            }
+        }
+
+        function calcTotal() {
+            var type = document.getElementById('form-type').value;
+            var price = parseFloat(document.getElementById('form-price').value) || 0;
+            var shares = parseFloat(document.getElementById('form-shares').value) || 0;
+            
+            if (type !== 'value_update') {
+                document.getElementById('form-amount').value = (price * shares).toFixed(2);
+            } else {
+                // 如果是市值更新，若有輸入股數就幫忙算總值，沒輸入就當作直接填總市值
+                if(shares > 0) {
+                    document.getElementById('form-amount').value = (price * shares).toFixed(2);
+                }
+            }
         }
 
         function saveAndRefresh() {
-            localStorage.setItem('multi_records_v2', JSON.stringify(records));
+            localStorage.setItem('multi_records_v3', JSON.stringify(records));
             updateTargetDropdowns();
             render();
         }
@@ -107,18 +161,32 @@
             var target = document.getElementById('form-target').value.trim();
             var date = document.getElementById('form-date').value;
             var type = document.getElementById('form-type').value;
+            var price = parseFloat(document.getElementById('form-price').value) || 0;
+            var shares = parseFloat(document.getElementById('form-shares').value) || 0;
             var amount = parseFloat(document.getElementById('form-amount').value) || 0;
             var desc = document.getElementById('form-desc').value.trim();
 
             if (!target) return alert('請輸入投資標的名稱');
             if (!date) return alert('請選擇日期');
-            if (amount <= 0) return alert('請輸入有效金額');
+            if (amount <= 0 && price <= 0) return alert('請輸入有效金額或單價');
 
             var current_value = 0;
-            if (type === 'withdraw') { amount = -amount; }
-            else if (type === 'value_update') { current_value = amount; amount = 0; }
+            if (type === 'withdraw') { 
+                amount = -Math.abs(amount); 
+                shares = -Math.abs(shares);
+            } else if (type === 'value_update') { 
+                current_value = amount > 0 ? amount : price; 
+                amount = 0; 
+            }
 
-            records.push({ target: target, date: date, amount: amount, transaction_type: type, description: desc, current_value: current_value });
+            records.push({ 
+                target: target, date: date, amount: amount, 
+                transaction_type: type, description: desc, 
+                current_value: current_value, price: price, shares: shares 
+            });
+            
+            document.getElementById('form-price').value = '';
+            document.getElementById('form-shares').value = '';
             document.getElementById('form-amount').value = '';
             document.getElementById('form-desc').value = '';
             saveAndRefresh();
@@ -143,13 +211,17 @@
             var sortedForCalc = records.slice().sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
             for (var i = 0; i < sortedForCalc.length; i++) {
                 var r = sortedForCalc[i];
-                if (r.transaction_type === 'value_update') { targetLatestValueMap[r.target] = r.current_value; }
+                if (r.transaction_type === 'value_update') { 
+                    targetLatestValueMap[r.target] = r.current_value; 
+                }
             }
 
             for (var j = 0; j < records.length; j++) {
                 var rec = records[j];
-                if ((filterTarget === 'ALL' || rec.target === filterTarget) && (rec.transaction_type === 'deposit' || rec.transaction_type === 'withdraw')) {
-                    totalNetInput += rec.amount;
+                if (filterTarget === 'ALL' || rec.target === filterTarget) {
+                    if (rec.transaction_type === 'deposit' || rec.transaction_type === 'withdraw') {
+                        totalNetInput += rec.amount;
+                    }
                 }
             }
 
@@ -159,8 +231,16 @@
                 totalLatestValue = targetLatestValueMap[filterTarget] || 0;
             }
 
-            document.getElementById('stat-net').innerText = '$' + totalNetInput.toLocaleString();
-            document.getElementById('stat-value').innerText = '$' + totalLatestValue.toLocaleString();
+            // 計算 ROI
+            var roiAmt = totalLatestValue - totalNetInput;
+            var roiPercent = totalNetInput > 0 ? (roiAmt / totalNetInput * 100).toFixed(2) : '0.00';
+            
+            document.getElementById('stat-net').innerText = '$' + totalNetInput.toLocaleString(undefined, {maximumFractionDigits:2});
+            document.getElementById('stat-value').innerText = '$' + totalLatestValue.toLocaleString(undefined, {maximumFractionDigits:2});
+            
+            var roiDiv = document.getElementById('stat-roi');
+            roiDiv.innerText = (roiAmt >= 0 ? '+' : '') + roiAmt.toLocaleString(undefined, {maximumFractionDigits:2}) + ' (' + roiPercent + '%)';
+            roiDiv.className = roiAmt >= 0 ? 'roi-up' : 'roi-down';
 
             var displayedRecords = [];
             for (var k = 0; k < records.length; k++) {
@@ -181,14 +261,28 @@
                 var item = document.createElement('div');
                 item.className = 'item';
                 
-                var typeStr = '存款', badgeBg = '#2ecc71', displayAmt = '$' + Math.abs(rowData.amount).toLocaleString();
-                if (rowData.transaction_type === 'withdraw') { typeStr = '提款'; badgeBg = '#e74c3c'; }
-                if (rowData.transaction_type === 'value_update') { typeStr = '市值'; badgeBg = '#f39c12'; displayAmt = '$' + rowData.current_value.toLocaleString(); }
+                var typeStr = '買入', badgeBg = '#e74c3c', displayAmt = '$' + Math.abs(rowData.amount).toLocaleString();
+                if (rowData.transaction_type === 'withdraw') { typeStr = '賣出'; badgeBg = '#2ecc71'; }
+                if (rowData.transaction_type === 'value_update') { 
+                    typeStr = '現值'; badgeBg = '#f39c12'; 
+                    displayAmt = '$' + rowData.current_value.toLocaleString(); 
+                }
+
+                // 詳情文字組合
+                var detailStr = '';
+                if (rowData.transaction_type !== 'value_update' && rowData.price > 0) {
+                    detailStr = '價格: $' + rowData.price + ' | 股數: ' + Math.abs(rowData.shares);
+                } else if (rowData.transaction_type === 'value_update' && rowData.price > 0) {
+                    detailStr = '現價: $' + rowData.price + (rowData.shares > 0 ? ' | 總股數: ' + rowData.shares : '');
+                }
+                if (rowData.description) {
+                    detailStr += (detailStr ? ' | ' : '') + rowData.description;
+                }
 
                 item.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
                     '<div>' +
                         '<div><span class="tag">' + rowData.target + '</span> ' + rowData.date + ' <span class="badge" style="background-color:' + badgeBg + '">' + typeStr + '</span></div>' +
-                        '<div style="font-size:12px; color:#666666; margin-top:3px;">' + (rowData.description || '無備註') + '</div>' +
+                        '<div style="font-size:12px; color:#666666; margin-top:3px;">' + (detailStr || '無備註') + '</div>' +
                     '</div>' +
                     '<div style="display:flex; align-items:center; gap:8px;">' +
                         '<span style="font-weight:bold;">' + displayAmt + '</span>' +
