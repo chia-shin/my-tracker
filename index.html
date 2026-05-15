@@ -1,14 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>投資複利與趨勢圖表系統</title>
-    <!-- 引入高相容性輕量圖表庫 -->
-    <script src="https://jsdelivr.net"></script>
+    <title>投資記帳與資產管理系統</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background-color: #ffffff; color: #333333; padding: 15px; margin: 0; padding-bottom: 75px; }
+        body { font-family: -apple-system, sans-serif; background-color: #ffffff; color: #333333; padding: 15px; margin: 0; }
         h1 { font-size: 20px; text-align: center; color: #4472C4; margin-bottom: 15px; }
         .box { background-color: #f8f9fa; border: 1px solid #dddddd; padding: 12px; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; width: 100%; }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
@@ -16,240 +14,173 @@
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         label { display: block; font-size: 13px; color: #666666; margin: 8px 0 3px 0; font-weight: bold; }
         
+        /* 🛠️ 基礎輸入框防溢出 */
         input, select { 
             width: 100%; padding: 10px; border: 1px solid #cccccc; border-radius: 6px; font-size: 16px; box-sizing: border-box; max-width: 100%; min-width: 0;
         }
+        
+        /* 🛠️ 終極修復：用彈性盒與外層鎖死 iOS 日期選擇器寬度 */
         .date-container { display: flex; width: 100%; box-sizing: border-box; }
         input[type="date"] {
             display: block !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important;
-            padding: 10px !important; min-height: 44px; box-sizing: border-box !important; flex: 1; -webkit-appearance: none; appearance: none;
+            padding: 10px !important; min-height: 44px; box-sizing: border-box !important; flex: 1;
+            -webkit-appearance: none; appearance: none;
         }
 
         button { width: 100%; padding: 12px; background-color: #4472C4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin-top: 12px; box-sizing: border-box; }
         .user-box { border: 2px solid #27ae60; background-color: #f4fbf7; }
-        .sync-box { border: 2px solid #f39c12; background-color: #fefaf2; }
-        
-        /* 📱 下方分頁工具列導航 */
-        .nav-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: #f8f9fa; border-top: 1px solid #ddd; display: flex; justify-content: space-around; padding: 8px 0 calc(8px + env(safe-area-inset-bottom)) 0; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); z-index: 999; }
-        .nav-btn { background: none; border: none; color: #666; font-size: 12px; font-weight: bold; margin: 0; padding: 5px; width: 30%; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .nav-btn.active { color: #4472C4; }
-        .nav-icon { font-size: 20px; }
-        .page-content { display: none; }
-        .page-content.active { display: block; }
-
-        /* 歷史明細樣式 */
-        .item { padding: 12px 6px; border-bottom: 1px solid #eeeeee; font-size: 14px; }
+        .item { padding: 10px; border-bottom: 1px solid #eeeeee; font-size: 14px; }
         .tag { background-color: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .badge { color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .roi-up { color: #e74c3c; font-weight: bold; }
         .roi-down { color: #2ecc71; font-weight: bold; }
         .future-val { color: #8e44ad; font-weight: bold; font-size: 18px; }
         .del-user-btn { background-color: #e74c3c; margin-top: 8px; padding: 8px; font-size: 13px; width: 100%; }
+        
+        .sync-box { border: 2px solid #f39c12; background-color: #fefaf2; }
+        .sync-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; background: #fff; padding: 8px; border-radius: 6px; border: 1px solid #ebd2ac; }
+        .sync-row span { font-weight: bold; font-size: 14px; min-width: 80px; text-align: left; }
     </style>
 </head>
 <body>
 
-    <h1>📈 投資資產配置與趨勢網頁 App</h1>
+    <h1>📈 投資記帳與資產管理系統</h1>
 
-    <!-- 👤 用戶切換與管理 (固定頂部全域共用) -->
+    <!-- 用戶管理區塊 -->
     <div class="box user-box">
-        <b style="font-size:15px; color:#27ae60;">👤 使用者帳戶切換</b>
+        <b style="font-size:15px; color:#27ae60;">👤 使用者切換與管理</b>
         <div class="grid-2" style="margin-top: 5px;">
             <div>
+                <label style="margin-top:0;">目前主要使用者：</label>
                 <select id="filter-user" style="border: 2px solid #27ae60; font-weight: bold;" onchange="onUserChange()"></select>
             </div>
             <div>
-                <button onclick="addUser()" style="background-color: #27ae60; margin-top: 0; padding: 10px;">➕ 新增新用戶</button>
+                <label style="margin-top:0;">管理操作：</label>
+                <button onclick="addUser()" style="background-color: #27ae60; margin-top: 0; padding: 10px;">➕ 建立帳戶</button>
             </div>
         </div>
+        <button onclick="deleteUser()" class="del-user-btn">❌ 刪除當前所選使用者</button>
     </div>
 
-    <!-- ==============================================
-         分頁一：📊 資產圖表主頁
-         ============================================== -->
-    <div id="page-dashboard" class="page-content active">
-        <!-- 核心資產看板 -->
-        <div class="box">
-            <div class="row">
-                <div>
-                    <label>當前資產總市值</label>
-                    <div id="stat-value" style="font-size: 18px; font-weight: bold; color: #f39c12;">$0</div>
-                </div>
-                <div>
-                    <label>累計投入成本</label>
-                    <div id="stat-net" style="font-size: 18px; font-weight: bold; color: #333333;">$0</div>
-                </div>
-            </div>
-            <div class="row" style="margin-top: 5px; border-top: 1px dashed #ddd; padding-top: 5px;">
-                <div>
-                    <label>歷史未實現損益 / 報酬率</label>
-                    <div id="stat-roi" style="font-size: 16px; font-weight: bold;">$0 (0.00%)</div>
-                </div>
-            </div>
-        </div>
+    <!-- 快速市值估值面板 -->
+    <div class="box sync-box">
+        <b style="font-size:15px; color:#f39c12;">⚡ 目前持股資產市值一鍵快更</b>
+        <div id="quick-sync-list" style="margin-top: 5px;"></div>
+        <button onclick="updateAllMarketValues()" style="background-color: #f39c12; margin-top: 10px; padding: 10px; font-size: 14px;">💾 儲存並更新上方總市值看板</button>
+    </div>
 
-        <!-- 折線圖展示盒 -->
-        <div class="box" style="background:#fff;">
-            <b style="font-size:15px; color:#4472C4;">📊 資產增長曲線走勢圖</b>
-            <div style="width: 100%; position: relative; margin-top: 10px;">
-                <canvas id="assetChart" style="width:100%; height:220px;"></canvas>
-            </div>
-        </div>
+    <div>
+        <label>🔍 切換檢視標的：</label>
+        <select id="filter-target" onchange="render()"></select>
+    </div>
 
-        <!-- 歷史市值時間點手動更 -->
-        <div class="box sync-box">
-            <b style="font-size:15px; color:#f39c12;">🔮 紀錄特定時間點的「歷史總市值」</b>
-            <label>歷史結算日期</label>
-            <div class="date-container">
-                <input type="date" id="sync-date">
-            </div>
-            <label>當天該帳戶全部總價值</label>
-            <input type="number" id="sync-amount" placeholder="請輸入當天全部資產總加總金額" inputmode="decimal">
-            
-            <button onclick="saveHistoryMarketValue()" style="background-color: #f39c12; margin-top: 10px;">💾 儲存該時間點市值並刷新圖表</button>
-        </div>
-
-        <!-- 未來複利預測模型 -->
-        <div class="box" style="border: 1px solid #8e44ad; background-color: #faf5ff;">
-            <b style="font-size:15px; color:#8e44ad;">🔮 未來資產複利增長預測 (包含每年再投入)</b>
-            <div class="grid-2">
-                <div>
-                    <label>預估年化報酬率 (%)</label>
-                    <input type="number" id="future-rate" value="12" inputmode="decimal" oninput="render()">
-                </div>
-                <div>
-                    <label>預估持有年數 (年)</label>
-                    <input type="number" id="future-years" value="5" inputmode="numeric" oninput="render()">
-                </div>
+    <!-- 數據看板 -->
+    <div class="box">
+        <div class="row">
+            <div>
+                <label>當前資產總市值</label>
+                <div id="stat-value" style="font-size: 18px; font-weight: bold; color: #f39c12;">$0</div>
             </div>
             <div>
-                <label>未來每年固定「再投入金額」</label>
-                <input type="number" id="future-annual-inject" value="100000" inputmode="numeric" oninput="render()">
+                <label>累計投入成本</label>
+                <div id="stat-net" style="font-size: 18px; font-weight: bold; color: #333333;">$0</div>
             </div>
-            <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid #e8dbf3;">
-                <label style="margin-top:0;">🎯 複利滾存 + 持續投入後的未來總值：</label>
-                <div id="stat-future" class="future-val">$0</div>
+        </div>
+        <div class="row" style="margin-top: 5px; border-top: 1px dashed #ddd; padding-top: 5px;">
+            <div>
+                <label>歷史未實現損益 / 報酬率</label>
+                <div id="stat-roi" style="font-size: 16px; font-weight: bold;">$0 (0.00%)</div>
             </div>
         </div>
     </div>
 
-
-    <!-- ==============================================
-         分頁二：✨ 新增買賣流水帳
-         ============================================== -->
-    <div id="page-add" class="page-content">
-        <div class="box">
-            <b style="font-size:16px; color:#4472C4;">✨ 登錄新買入/賣出交易</b>
-            
-            <label>投資標的名稱代號</label>
-            <input type="text" id="form-target" placeholder="例如：2330、00675L、QLD">
-
-            <label>日期</label>
-            <div class="date-container">
-                <input type="date" id="form-date">
+    <!-- 未來複利預測模型 -->
+    <div class="box" style="border: 1px solid #8e44ad; background-color: #faf5ff;">
+        <b style="font-size:15px; color:#8e44ad;">🔮 未來資產複利增長預測 (包含每年再投入)</b>
+        <div class="grid-2">
+            <div>
+                <label>預估年化報酬率 (%)</label>
+                <input type="number" id="future-rate" value="12" placeholder="例如: 12" inputmode="decimal" oninput="render()">
             </div>
-            
-            <label>交易類型</label>
-            <select id="form-type" onchange="toggleFields()">
-                <option value="deposit">買入 (投入總額)</option>
-                <option value="withdraw">賣出 (贖回總額)</option>
-            </select>
-
-            <div id="trade-group" class="grid-3">
-                <div>
-                    <label id="lbl-p2">交易股數</label>
-                    <input type="number" id="form-shares" placeholder="股數" inputmode="decimal" oninput="calcPrice()">
-                </div>
-                <div>
-                    <label id="lbl-amt">實際總交金額</label>
-                    <input type="number" id="form-amount" placeholder="總金額" inputmode="decimal" oninput="calcPrice()">
-                </div>
-                <div>
-                    <label id="lbl-p1">計算出單價</label>
-                    <input type="number" id="form-price" placeholder="自動計算" readonly style="background-color: #eee; color: #555;">
-                </div>
+            <div>
+                <label>預估持有年數 (年)</label>
+                <input type="number" id="future-years" value="5" placeholder="例如: 5" inputmode="numeric" oninput="render()">
             </div>
-
-            <label>說明備註</label>
-            <input type="text" id="form-desc" placeholder="摘要備註">
-
-            <button onclick="addRecord()">確認儲存至明細庫</button>
+        </div>
+        <div>
+            <label>未來每年固定「再投入金額」</label>
+            <input type="number" id="future-annual-inject" value="100000" placeholder="例如: 100000" inputmode="numeric" oninput="render()">
+        </div>
+        <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid #e8dbf3;">
+            <label style="margin-top:0;">🎯 複利滾存 + 持續投入後的未來總值：</label>
+            <div id="stat-future" class="future-val">$0</div>
         </div>
     </div>
 
+    <!-- 新增紀錄 -->
+    <div class="box">
+        <b style="font-size:16px;">✨ 新增投資紀錄</b>
+        
+        <label>投資標的名稱代號</label>
+        <input type="text" id="form-target" placeholder="例如：2330、00675L、QLD">
 
-    <!-- ==============================================
-         分頁三：📋 歷史明細與帳戶移除
-         ============================================== -->
-    <div id="page-history" class="page-content">
-        <div style="margin-bottom: 12px;">
-            <label style="margin-top:0;">🔍 篩選目前檢視標的：</label>
-            <select id="filter-target" onchange="render()"></select>
+        <label>日期</label>
+        <div class="date-container">
+            <input type="date" id="form-date">
+        </div>
+        
+        <label>交易類型</label>
+        <select id="form-type" onchange="toggleFields()">
+            <option value="deposit">買入 (投入總額)</option>
+            <option value="withdraw">賣出 (贖回總額)</option>
+        </select>
+
+        <div id="trade-group" class="grid-3">
+            <div>
+                <label id="lbl-p2">買入股數</label>
+                <input type="number" id="form-shares" placeholder="股數" inputmode="decimal" oninput="calcPrice()">
+            </div>
+            <div>
+                <label id="lbl-amt">實際總金額</label>
+                <input type="number" id="form-amount" placeholder="總金額" inputmode="decimal" oninput="calcPrice()">
+            </div>
+            <div>
+                <label id="lbl-p1">計算出單價</label>
+                <input type="number" id="form-price" placeholder="自動計算" inputmode="decimal" readonly style="background-color: #eee; color: #555;">
+            </div>
         </div>
 
-        <div class="box">
-            <b style="font-size:16px; color:#333;">📋 歷史買賣明細紀錄</b>
-            <div id="records-list" style="margin-top: 10px;"></div>
-        </div>
+        <label>說明備註</label>
+        <input type="text" id="form-desc" placeholder="摘要備註">
 
-        <div class="box" style="border: 1px solid #e74c3c;">
-            <b style="font-size:14px; color:#e74c3c;">⚠️ 進階危險操作</b>
-            <button onclick="deleteUser()" class="del-user-btn">❌ 永久刪除目前所選使用者及其名下全紀錄</button>
-        </div>
+        <button onclick="addRecord()">確認儲存</button>
     </div>
 
-
-    <!-- ==============================================
-         📱 底部固定導航導覽列
-         ============================================== -->
-    <div class="nav-bar">
-        <button class="nav-btn active" onclick="switchTab('dashboard', this)">
-            <span class="nav-icon">📊</span><span>首頁圖表</span>
-        </button>
-        <button class="nav-btn" onclick="switchTab('add', this)">
-            <span class="nav-icon">✨</span><span>新增紀錄</span>
-        </button>
-        <button class="nav-btn" onclick="switchTab('history', this)">
-            <span class="nav-icon">📋</span><span>歷史明細</span>
-        </button>
+    <div class="box">
+        <b style="font-size:16px;">📋 歷史紀錄明細</b>
+        <div id="records-list" style="margin-top: 10px;"></div>
     </div>
-
 
     <script>
-        // 資料庫版本升級
-        var records = JSON.parse(localStorage.getItem('multi_user_records_v6')) || [];
-        var historyValuations = JSON.parse(localStorage.getItem('multi_user_valuations_v6')) || {}; // 儲存時間點市值字典
+        // 核心架構重構：將交易紀錄 (records) 與目前最新現價字典 (marketPrices) 分開
+        var records = JSON.parse(localStorage.getItem('multi_user_records_v5')) || [];
+        var marketPrices = JSON.parse(localStorage.getItem('multi_user_prices_v5')) || {};
         var users = JSON.parse(localStorage.getItem('multi_users_list_v4')) || ['預設使用者'];
-        
-        var chartInstance = null; // 存放 Chart.js 實例
 
-        // 初始化預設日期
-        var todayFormatted = new Date().toISOString().split('T')[0];
-        document.getElementById('form-date').value = todayFormatted;
-        document.getElementById('sync-date').value = todayFormatted;
-
-        // 📱 切換分頁控制
-        function switchTab(tabId, btnElement) {
-            var contents = document.getElementsByClassName('page-content');
-            for(var i=0; i<contents.length; i++) contents[i].classList.remove('active');
-            
-            var buttons = document.getElementsByClassName('nav-btn');
-            for(var j=0; j<buttons.length; j++) buttons[j].classList.remove('active');
-            
-            document.getElementById('page-' + tabId).classList.add('active');
-            btnElement.classList.add('active');
-            
-            // 如果切換回首頁，強迫重繪圖表確保寬度正確
-            if(tabId === 'dashboard') render();
-        }
+        document.getElementById('form-date').value = new Date().toISOString().split('T');
 
         function toggleFields() {
             var type = document.getElementById('form-type').value;
-            document.getElementById('lbl-p2').innerText = (type === 'withdraw') ? '賣出股數' : '買入股數';
-            document.getElementById('lbl-amt').innerText = (type === 'withdraw') ? '實際總拿回' : '實際總扣款';
-            document.getElementById('form-shares').value = '';
-            document.getElementById('form-amount').value = '';
-            document.getElementById('form-price').value = '';
+            var priceInput = document.getElementById('form-price');
+            var sharesInput = document.getElementById('form-shares');
+            var amtInput = document.getElementById('form-amount');
+            priceInput.value = ''; sharesInput.value = ''; amtInput.value = '';
+
+            if (type === 'withdraw') {
+                document.getElementById('lbl-p1').innerText = '算出的單價'; document.getElementById('lbl-p2').innerText = '賣出股數'; document.getElementById('lbl-amt').innerText = '實際總拿回';
+            } else {
+                document.getElementById('lbl-p1').innerText = '算出的單價'; document.getElementById('lbl-p2').innerText = '買入股數'; document.getElementById('lbl-amt').innerText = '實際總扣款';
+            }
         }
 
         function calcPrice() {
@@ -260,38 +191,76 @@
             else priceInput.value = '';
         }
 
-        // 💾 紀錄手動輸入的多個時間點的「歷史總市值」
-        function saveHistoryMarketValue() {
+        // ⚡ 批量快速市值更新面板渲染：從 records 抓持有股數，但現價改存入獨立的字典中
+        function refreshQuickSyncList() {
             var currentUser = document.getElementById('filter-user').value;
-            var sDate = document.getElementById('sync-date').value;
-            var sAmt = parseFloat(document.getElementById('sync-amount').value) || 0;
+            var container = document.getElementById('quick-sync-list');
+            container.innerHTML = '';
 
-            if(!sDate) return alert('請選擇歷史結算日期');
-            if(sAmt <= 0) return alert('請輸入有效的資產總價值');
+            var stockSharesMap = {};
+            for (var i = 0; i < records.length; i++) {
+                if (records[i].user === currentUser) {
+                    var t = records[i].target;
+                    stockSharesMap[t] = (stockSharesMap[t] || 0) + records[i].shares;
+                }
+            }
 
-            if (!historyValuations[currentUser]) historyValuations[currentUser] = [];
+            var hasStocks = false;
+            // 讀取該用戶目前的現價字典
+            var userPrices = marketPrices[currentUser] || {};
+
+            for (var code in stockSharesMap) {
+                if (stockSharesMap[code] > 0) {
+                    hasStocks = true;
+                    var shares = stockSharesMap[code];
+                    var currentSavedPrice = userPrices[code] || '';
+
+                    var row = document.createElement('div');
+                    row.className = 'sync-row';
+                    row.innerHTML = `
+                        <span>📈 ${code}</span>
+                        <div style="font-size:12px; color:#666; min-width:65px;">持股: ${shares}</div>
+                        <input type="number" class="quick-price-input" data-code="${code}" value="${currentSavedPrice}" placeholder="填目前單現價" style="padding:6px; font-size:14px;">
+                    `;
+                    container.appendChild(row);
+                }
+            }
+
+            if (!hasStocks) {
+                container.innerHTML = '<p style="color:#999; text-align:center; padding:5px; font-size:13px;">⚠️ 帳戶目前無持股，請先在下方新增買入明細</p>';
+            }
+        }
+
+        // 💾 儲存現價：只寫入獨立的價格字典，絕不寫入歷史明細 records
+        function updateAllMarketValues() {
+            var currentUser = document.getElementById('filter-user').value;
+            var inputs = document.getElementsByClassName('quick-price-input');
             
-            // 如果該日期已有資料則直接覆蓋，沒有則新增
-            var existingIdx = -1;
-            for(var i=0; i<historyValuations[currentUser].length; i++) {
-                if(historyValuations[currentUser][i].date === sDate) { existingIdx = i; break; }
+            if (!marketPrices[currentUser]) marketPrices[currentUser] = {};
+            var updateCount = 0;
+
+            for (var i = 0; i < inputs.length; i++) {
+                var code = inputs[i].getAttribute('data-code');
+                var currentPrice = parseFloat(inputs[i].value) || 0;
+                if (currentPrice > 0) {
+                    marketPrices[currentUser][code] = currentPrice;
+                    updateCount++;
+                }
             }
 
-            if(existingIdx !== -1) {
-                historyValuations[currentUser][existingIdx].value = sAmt;
+            if (updateCount > 0) {
+                localStorage.setItem('multi_user_prices_v5', JSON.stringify(marketPrices));
+                render();
+                alert('✅ 成功快速同步最新現價，總市值已重新計算！\n(明細維持乾淨，未增加歷史贅錄)');
             } else {
-                historyValuations[currentUser].push({ date: sDate, value: sAmt });
+                alert('ℹ️ 請至少填寫一檔股票的當前單價後再儲存。');
             }
-
-            localStorage.setItem('multi_user_valuations_v6', JSON.stringify(historyValuations));
-            document.getElementById('sync-amount').value = '';
-            render();
-            alert('✅ 成功儲存 ' + sDate + ' 的歷史市值點，圖表已同步繪製！');
         }
 
         function addUser() {
             var name = prompt('請輸入新使用者名稱：');
-            if (!name) return; name = name.trim();
+            if (!name) return;
+            name = name.trim();
             if (users.indexOf(name) !== -1) return alert('此使用者名稱已存在');
             users.push(name);
             localStorage.setItem('multi_users_list_v4', JSON.stringify(users));
@@ -303,13 +272,13 @@
         function deleteUser() {
             var currentUser = document.getElementById('filter-user').value;
             if (users.length <= 1) return alert('❌ 系統必須保留至少一位使用者。');
-            if (!confirm('⚠️ 確定要刪除使用者「' + currentUser + '」嗎？') || !confirm('🚨 警告：這會永久刪除名下所有明細與歷史市值，無法復原！')) return;
+            if (!confirm('⚠️ 確定要刪除使用者「' + currentUser + '」嗎？') || !confirm('🚨 警告：這會刪除其名下所有資料且無法復原！確定要繼續嗎？')) return;
             
             records = records.filter(function(r) { return r.user !== currentUser; });
-            delete historyValuations[currentUser];
+            delete marketPrices[currentUser];
             
-            localStorage.setItem('multi_user_records_v6', JSON.stringify(records));
-            localStorage.setItem('multi_user_valuations_v6', JSON.stringify(historyValuations));
+            localStorage.setItem('multi_user_records_v5', JSON.stringify(records));
+            localStorage.setItem('multi_user_prices_v5', JSON.stringify(marketPrices));
             
             users.splice(users.indexOf(currentUser), 1);
             localStorage.setItem('multi_users_list_v4', JSON.stringify(users));
@@ -341,7 +310,7 @@
             }
             var filterSelect = document.getElementById('filter-target');
             var currentFilter = filterSelect.value || 'ALL';
-            filterSelect.innerHTML = '<option value="ALL">全部標的綜合明細</option>';
+            filterSelect.innerHTML = '<option value="ALL">顯示所有標的</option>';
             for (var j = 0; j < targets.length; j++) {
                 filterSelect.innerHTML += '<option value="' + targets[j] + '">' + targets[j] + '</option>';
             }
@@ -356,7 +325,7 @@
             var shares = parseFloat(document.getElementById('form-shares').value) || 0;
             var amount = parseFloat(document.getElementById('form-amount').value) || 0;
 
-            if (!target) return alert('請輸入投資標的代號');
+            if (!target) return alert('請輸入投資標的名稱');
             if (!date) return alert('請選擇日期');
             if (shares <= 0 || amount <= 0) return alert('請輸入有效的股數與總金額');
 
@@ -374,22 +343,20 @@
             document.getElementById('form-price').value = '';
             document.getElementById('form-desc').value = '';
             
-            localStorage.setItem('multi_user_records_v6', JSON.stringify(records));
+            localStorage.setItem('multi_user_records_v5', JSON.stringify(records));
             updateTargetDropdowns();
             render();
-            alert('✅ 買賣明細已成功記錄！可至「歷史明細」分頁查看。');
         }
 
         function deleteRecord(index) {
-            if (confirm('⚠️ 確定要刪除此筆交易明細嗎？')) {
+            if (confirm('⚠️ 確定要刪除此筆紀錄嗎？')) {
                 records.splice(index, 1);
-                localStorage.setItem('multi_user_records_v6', JSON.stringify(records));
+                localStorage.setItem('multi_user_records_v5', JSON.stringify(records));
                 updateTargetDropdowns();
                 render();
             }
         }
 
-        // 📈 核心渲染與雙線 Chart.js 畫圖演算法
         function render() {
             var currentUser = document.getElementById('filter-user').value;
             var filterTarget = document.getElementById('filter-target').value || 'ALL';
@@ -400,102 +367,53 @@
             var totalLatestValue = 0;
 
             var userRecords = records.filter(function(r) { return r.user === currentUser; });
-            var userVals = historyValuations[currentUser] || [];
+            var userPrices = marketPrices[currentUser] || {};
 
-            // 1. 計算該用戶當前最新真實累計成本成本
-            for (var j = 0; j < userRecords.length; j++) {
-                var rec = userRecords[j];
-                if (filterTarget === 'ALL' || rec.target === filterTarget) totalNetInput += rec.amount;
+            // 1. 計算各標的的持股總數
+            var stockSharesMap = {};
+            for (var i = 0; i < userRecords.length; i++) {
+                var rec = userRecords[i];
+                stockSharesMap[rec.target] = (stockSharesMap[rec.target] || 0) + rec.shares;
+                
+                // 順便累計投入成本
+                if (filterTarget === 'ALL' || rec.target === filterTarget) {
+                    totalNetInput += rec.amount;
+                }
             }
 
-            // 2. 獲取最新時間點的總市值
-            var sortedVals = userVals.slice().sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
-            if (sortedVals.length > 0) {
-                totalLatestValue = sortedVals[sortedVals.length - 1].value;
+            // 2. 利用獨立價格字典計算總市值
+            if (filterTarget === 'ALL') {
+                for (var code in stockSharesMap) {
+                    var curShares = stockSharesMap[code];
+                    var curPrice = userPrices[code] || 0;
+                    if (curShares > 0) totalLatestValue += (curShares * curPrice);
+                }
+            } else {
+                var targetShares = stockSharesMap[filterTarget] || 0;
+                var targetPrice = userPrices[filterTarget] || 0;
+                totalLatestValue = targetShares * targetPrice;
             }
 
-            // 數據看板計算
             var roiAmt = totalLatestValue - totalNetInput;
             var roiPercent = totalNetInput > 0 ? (roiAmt / totalNetInput * 100).toFixed(2) : '0.00';
             
             document.getElementById('stat-net').innerText = '$' + totalNetInput.toLocaleString(undefined, {maximumFractionDigits:2});
             document.getElementById('stat-value').innerText = '$' + totalLatestValue.toLocaleString(undefined, {maximumFractionDigits:2});
+            
             var roiDiv = document.getElementById('stat-roi');
             roiDiv.innerText = (roiAmt >= 0 ? '+' : '') + roiAmt.toLocaleString(undefined, {maximumFractionDigits:2}) + ' (' + roiPercent + '%)';
             roiDiv.className = roiAmt >= 0 ? 'roi-up' : 'roi-down';
 
-            // 未來預測公式
             var fRate = parseFloat(document.getElementById('future-rate').value) || 0;
             var fYears = parseFloat(document.getElementById('future-years').value) || 0;
             var fInject = parseFloat(document.getElementById('future-annual-inject').value) || 0;
             var r_rate = fRate / 100; var futureValue = totalLatestValue * Math.pow(1 + r_rate, fYears);
             if (r_rate > 0 && fInject > 0) futureValue += fInject * ((Math.pow(1 + r_rate, fYears) - 1) / r_rate) * (1 + r_rate);
             else futureValue += fInject * fYears;
+            
             document.getElementById('stat-future').innerText = '$' + Math.round(futureValue).toLocaleString() + ' 元';
 
-            // 📊 建立圖表專用坐標軸數據集 (依日期正向結合累計成本與歷史市值點)
-            var timelineMap = {};
-            
-            // 結合歷史投入成本時間線
-            var chronRecords = userRecords.slice().sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
-            var runningCost = 0;
-            for(var c=0; c<chronRecords.length; c++) {
-                runningCost += chronRecords[c].amount;
-                timelineMap[chronRecords[c].date] = { cost: runningCost, market: null };
-            }
-
-            // 結合手動輸入的多個歷史市值點
-            for(var v=0; v<sortedVals.length; v++) {
-                var dKey = sortedVals[v].date;
-                if(!timelineMap[dKey]) {
-                    // 如果這天沒有交易明細，成本則沿用前一刻的成本
-                    var fallbackCost = 0;
-                    for(var rDate in timelineMap) {
-                        if(new Date(rDate) <= new Date(dKey)) fallbackCost = timelineMap[rDate].cost;
-                    }
-                    timelineMap[dKey] = { cost: fallbackCost, market: sortedVals[v].value };
-                } else {
-                    timelineMap[dKey].market = sortedVals[v].value;
-                }
-            }
-
-            // 把大雜燴字典轉為有序陣列
-            var chartTimeline = [];
-            for (var dateStr in timelineMap) {
-                chartTimeline.push({ date: dateStr, cost: timelineMap[dateStr].cost, market: timelineMap[dateStr].market });
-            }
-            chartTimeline.sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
-
-            // 萃取出 Chart.js 所需陣列
-            var labels = chartTimeline.map(function(item) { return item.date; });
-            var costData = chartTimeline.map(function(item) { return item.cost; });
-            var marketData = chartTimeline.map(function(item) { return item.market; });
-
-            // 🎯 初始化或重繪 Chart.js 折線圖
-            var ctx = document.getElementById('assetChart').getContext('2d');
-            if (chartInstance) chartInstance.destroy(); // 避免圖表重疊殘影
-            
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: '累計投入成本', data: costData, borderColor: '#333333', backgroundColor: 'transparent', borderWidth: 2.5, tension: 0.1, pointRadius: 3 },
-                        { label: '手動輸入市值', data: marketData, borderColor: '#f39c12', backgroundColor: 'transparent', borderWidth: 2.5, tension: 0.1, pointRadius: 4, spanGaps: true }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                        y: { ticks: { font: { size: 10 } } }
-                    },
-                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } }
-                }
-            });
-
-            // 3. 渲染「分頁三」獨立的流水帳交易紀錄列表明細
+            // 3. 渲染純淨的交易紀錄明細（再也沒有令人混淆的市值更新列）
             var displayedRecords = [];
             for (var k = 0; k < records.length; k++) {
                 if (records[k].user === currentUser && (filterTarget === 'ALL' || records[k].target === filterTarget)) {
@@ -505,30 +423,34 @@
             displayedRecords.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
 
             if (displayedRecords.length === 0) {
-                list.innerHTML = '<p style="color:#999999; text-align:center; padding:10px;">暫無買賣交易明細</p>';
-                return;
+                list.innerHTML = '<p style="color:#999999; text-align:center; padding:10px;">暫無紀錄</p>';
+            } else {
+                for (var m = 0; m < displayedRecords.length; m++) {
+                    var rowData = displayedRecords[m];
+                    var item = document.createElement('div');
+                    item.className = 'item';
+                    
+                    var typeStr = '買入', badgeBg = '#e74c3c', displayAmt = '$' + Math.abs(rowData.amount).toLocaleString();
+                    if (rowData.transaction_type === 'withdraw') { typeStr = '賣出'; badgeBg = '#2ecc71'; }
+
+                    var detailStr = '總額: ' + displayAmt + ' | 股數: ' + Math.abs(rowData.shares) + ' | 成本單價: $' + rowData.price.toFixed(2);
+                    if (rowData.description) detailStr += ' | ' + rowData.description;
+
+                    item.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+                        '<div>' +
+                            '<div><span class="tag">' + rowData.target + '</span> ' + rowData.date + ' <span class="badge" style="background-color:' + badgeBg + '">' + typeStr + '</span></div>' +
+                            '<div style="font-size:12px; color:#666666; margin-top:3px;">' + detailStr + '</div>' +
+                        '</div>' +
+                        '<div style="display:flex; align-items:center; gap:8px;">' +
+                            '<span style="font-weight:bold;">' + displayAmt + '</span>' +
+                            '<button onclick="deleteRecord(' + rowData.originalIdx + ')" style="background:none; color:#e74c3c; width:auto; margin:0; padding:4px 8px; border:1px solid #e74c3c; font-size:12px;">刪除</button>' +
+                        '</div>' +
+                    '</div>';
+                    list.appendChild(item);
+                }
             }
-
-            for (var m = 0; m < displayedRecords.length; m++) {
-                var rowData = displayedRecords[m];
-                var item = document.createElement('div');
-                item.className = 'item';
-                
-                var typeStr = '買入', badgeBg = '#e74c3c', displayAmt = '$' + Math.abs(rowData.amount).toLocaleString();
-                if (rowData.transaction_type === 'withdraw') { typeStr = '賣出'; badgeBg = '#2ecc71'; }
-
-                var detailStr = '總額: ' + displayAmt + ' | 股數: ' + Math.abs(rowData.shares) + ' | 成本單價: $' + rowData.price.toFixed(2);
-                if (rowData.description) detailStr += ' | ' + rowData.description;
-
-                item.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-                    '<div>' +
-                        '<div><span class="tag">' + rowData.target + '</span> ' + rowData.date + ' <span class="badge" style="background-color:' + badgeBg + '">' + typeStr + '</span></div>' +
-                        '<div style="font-size:12px; color:#666666; margin-top:3px;">' + detailStr + '</div>' +
-                    '</div>' +
-                    '<button onclick="deleteRecord(' + rowData.originalIdx + ')" style="background:none; color:#e74c3c; width:auto; margin:0; padding:4px 8px; border:1px solid #e74c3c; font-size:12px;">刪除</button>' +
-                '</div>';
-                list.appendChild(item);
-            }
+            
+            refreshQuickSyncList();
         }
 
         updateUserDropdown(); updateTargetDropdowns(); render();
