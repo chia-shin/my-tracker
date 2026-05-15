@@ -5,54 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="多標的記帳">
-    <title>多標的投資記帳管理系統</title>
-    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-title" content="投資記帳">
+    <title>投資記帳系統</title>
     <link rel="manifest" href="manifest.json">
-    <script src="https://jsdelivr.net"></script>
     <style>
-        :root {
-            --primary: #4472C4;
-            --bg: #f5f7fa;
-            --card: #ffffff;
-            --text: #333333;
-            --deposit: #2ecc71;
-            --withdraw: #e74c3c;
-            --update: #f39c12;
-        }
+        :root { --primary: #4472C4; --bg: #121212; --card: #1e1e1e; --text: #ffffff; --deposit: #2ecc71; --withdraw: #e74c3c; --update: #f39c12; }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); padding: 20px; padding-bottom: 40px; padding-top: calc(20px + env(safe-area-inset-top)); }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; padding-top: calc(20px + env(safe-area-inset-top)); }
         h1 { font-size: 1.4rem; text-align: center; margin-bottom: 15px; color: var(--primary); }
-        .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        .card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .stats-val { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
-        label { display: block; font-size: 0.85rem; color: #666; margin-bottom: 5px; margin-top: 10px; }
-        input, select, button { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; margin-bottom: 5px; -webkit-appearance: none; }
-        button { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; transition: opacity 0.2s; margin-top: 10px; }
-        button:active { opacity: 0.8; }
-        button.export-btn { background: #27ae60; }
-        .record-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 5px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
-        .record-item:last-child { border-bottom: none; }
+        label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 5px; margin-top: 10px; }
+        input, select, button { width: 100%; padding: 12px; border: 1px solid #4472C4; border-radius: 8px; font-size: 1rem; margin-bottom: 5px; background: #2a2a2a; color: #fff; }
+        button { background: var(--primary); font-weight: bold; cursor: pointer; border: none; margin-top: 10px; }
+        .record-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 5px; border-bottom: 1px solid #333; font-size: 0.9rem; }
         .badge { padding: 3px 6px; border-radius: 4px; color: white; font-size: 0.75rem; font-weight: bold; }
-        .target-badge { background: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
+        .target-badge { background: #555; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
         .bg-deposit { background: var(--deposit); }
         .bg-withdraw { background: var(--withdraw); }
         .bg-update { background: var(--update); }
         .del-btn { background: none; color: #e74c3c; width: auto; margin: 0; padding: 5px 10px; border: 1px solid #e74c3c; }
-        .filter-select { background: #fff; border: 2px solid var(--primary); font-weight: bold; color: var(--primary); }
+        .filter-select { border: 2px solid var(--primary); font-weight: bold; color: #fff; background: var(--card); }
     </style>
 </head>
 <body>
 
     <h1>📈 多標的投資記帳系統</h1>
 
-    <!-- 篩選標的 -->
     <div style="margin-bottom: 15px;">
         <label style="margin-top:0;">🔍 切換檢視標的：</label>
         <select id="filter-target" class="filter-select" onchange="render()"></select>
     </div>
 
-    <!-- 數據概覽 -->
     <div class="card grid-2">
         <div>
             <label>最新市值總計</label>
@@ -64,13 +49,11 @@
         </div>
     </div>
 
-    <!-- 新增紀錄 -->
     <div class="card">
         <h3>✨ 新增投資紀錄</h3>
         
         <label>投資標的名稱</label>
-        <input type="text" id="form-target" placeholder="例如：台積電、0050、美股富達" list="target-suggestions">
-        <datalist id="target-suggestions"></datalist>
+        <input type="text" id="form-target" placeholder="例如：台積電、0050">
 
         <label>日期</label>
         <input type="date" id="form-date">
@@ -93,12 +76,6 @@
         <button onclick="addRecord()">確認儲存</button>
     </div>
 
-    <!-- 功能按鍵 -->
-    <div style="margin-bottom: 15px;">
-        <button class="export-btn" onclick="exportToExcel()">💾 匯出 Excel 試算表</button>
-    </div>
-
-    <!-- 紀錄列表 -->
     <div class="card">
         <h3>📋 歷史紀錄明細</h3>
         <div id="records-list" style="margin-top: 10px;"></div>
@@ -107,7 +84,6 @@
     <script>
         let records = JSON.parse(localStorage.getItem('multi_investment_records')) || [];
 
-        // 初始化日期
         document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
 
         function toggleFields() {
@@ -121,11 +97,8 @@
             render();
         }
 
-        // 更新篩選器與輸入建議清單
         function updateTargetDropdowns() {
             const targets = [...new Set(records.map(r => r.target).filter(Boolean))];
-            
-            // 更新篩選下拉選單
             const filterSelect = document.getElementById('filter-target');
             const currentFilter = filterSelect.value || 'ALL';
             filterSelect.innerHTML = '<option value="ALL">顯示所有標的</option>';
@@ -135,13 +108,6 @@
             if (targets.includes(currentFilter) || currentFilter === 'ALL') {
                 filterSelect.value = currentFilter;
             }
-
-            // 更新輸入建議
-            const datalist = document.getElementById('target-suggestions');
-            datalist.innerHTML = '';
-            targets.forEach(t => {
-                datalist.innerHTML += `<option value="${t}">`;
-            });
         }
 
         function addRecord() {
@@ -156,15 +122,10 @@
             if (amount <= 0) return alert('請輸入有效金額');
 
             let current_value = 0;
-            if (type === 'withdraw') {
-                amount = -amount;
-            } else if (type === 'value_update') {
-                current_value = amount;
-                amount = 0;
-            }
+            if (type === 'withdraw') { amount = -amount; }
+            else if (type === 'value_update') { current_value = amount; amount = 0; }
 
             records.push({ target, date, amount, transaction_type: type, description: desc, current_value });
-            
             document.getElementById('form-amount').value = '';
             document.getElementById('form-desc').value = '';
             saveAndRefresh();
@@ -184,20 +145,14 @@
             
             let totalNetInput = 0;
             let totalLatestValue = 0;
-
-            // 計算各別標的的最新市值
             const targetLatestValueMap = {};
-            // 按日期正序排列計算，確保最後一筆是最新市值
+
             [...records].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(r => {
-                if (r.transaction_type === 'value_update') {
-                    targetLatestValueMap[r.target] = r.current_value;
-                }
+                if (r.transaction_type === 'value_update') { targetLatestValueMap[r.target] = r.current_value; }
             });
 
-            // 計算數據摘要
             records.forEach(r => {
-                const isMatch = (filterTarget === 'ALL' || r.target === filterTarget);
-                if (isMatch && (r.transaction_type === 'deposit' || r.transaction_type === 'withdraw')) {
+                if ((filterTarget === 'ALL' || r.target === filterTarget) && (r.transaction_type === 'deposit' || r.transaction_type === 'withdraw')) {
                     totalNetInput += r.amount;
                 }
             });
@@ -208,10 +163,9 @@
                 totalLatestValue = targetLatestValueMap[filterTarget] || 0;
             }
 
-            document.getElementById('stat-net').innerText = `$${totalNetInput.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('stat-value').innerText = `$${totalLatestValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('stat-net').innerText = `$${totalNetInput.toLocaleString()}`;
+            document.getElementById('stat-value').innerText = `$${totalLatestValue.toLocaleString()}`;
 
-            // 篩選與排序明細（由新到舊）
             const displayedRecords = records
                 .map((r, idx) => ({...r, originalIdx: idx}))
                 .filter(r => filterTarget === 'ALL' || r.target === filterTarget)
@@ -225,18 +179,14 @@
             displayedRecords.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'record-item';
-                
                 let typeStr = '存款', badgeClass = 'bg-deposit', displayAmt = `$${Math.abs(r.amount).toLocaleString()}`;
                 if (r.transaction_type === 'withdraw') { typeStr = '提款'; badgeClass = 'bg-withdraw'; }
                 if (r.transaction_type === 'value_update') { typeStr = '市值'; badgeClass = 'bg-update'; displayAmt = `$${r.current_value.toLocaleString()}`; }
 
                 item.innerHTML = `
                     <div>
-                        <div style="font-weight:bold;">
-                            <span class="target-badge">${r.target}</span> ${r.date} 
-                            <span class="badge ${badgeClass}">${typeStr}</span>
-                        </div>
-                        <div style="font-size:0.8rem; color:#666; margin-top:2px;">${r.description || '無備註'}</div>
+                        <div style="font-weight:bold;"><span class="target-badge">${r.target}</span> ${r.date} <span class="badge ${badgeClass}">${typeStr}</span></div>
+                        <div style="font-size:0.8rem; color:#aaa; margin-top:2px;">${r.description || '無備註'}</div>
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <span style="font-weight:bold;">${displayAmt}</span>
@@ -247,31 +197,7 @@
             });
         }
 
-        function exportToExcel() {
-            if(records.length === 0) return alert('沒有資料可匯出');
-            
-            const data = records.map(r => ({
-                "投資標的": r.target,
-                "日期": r.date,
-                "金額": r.amount,
-                "交易類型": r.transaction_type,
-                "說明": r.description,
-                "目前市值": r.current_value
-            }));
-
-            const worksheet = XLSX.utils.json_to_sheet(data);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "投資紀錄明細");
-            
-            worksheet['!cols'] = [{wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:30}, {wch:15}];
-            XLSX.writeFile(workbook, "portfolio_records.xlsx");
-        }
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(() => {});
-        }
-
-        // 初始化
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(() => {}); }
         updateTargetDropdowns();
         render();
     </script>
