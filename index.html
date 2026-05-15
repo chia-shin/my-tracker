@@ -3,30 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>投資走勢分析系統 - 全自動相容版</title>
+    <title>投資走勢分析系統 - 完整功能版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <style>
-        :root {
-            --primary: #3a5fcd; --success: #2e7d32; --warning: #ed6c02; --danger: #d32f2f;
-            --border-color: #e0e0e0; --bg-light: #f8f9fa;
-        }
-        body { font-family: -apple-system, sans-serif; background-color: var(--bg-light); margin: 0; padding-bottom: 70px; color: #2c3e50; }
-        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 60px; background: #fff; display: flex; border-top: 1px solid #ddd; z-index: 100; }
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #7f8c8d; cursor: pointer; }
+        :root { --primary: #3a5fcd; --success: #2e7d32; --warning: #ed6c02; --danger: #d32f2f; --border: #e0e0e0; }
+        body { font-family: -apple-system, sans-serif; background: #f8f9fa; margin: 0; padding-bottom: 70px; color: #2c3e50; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 65px; background: #fff; display: flex; border-top: 1px solid #ddd; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; color: #7f8c8d; cursor: pointer; }
         .nav-item.active { color: var(--primary); font-weight: bold; }
         .page { display: none; padding: 15px; }
         .page.active { display: block; }
-        .box { background: #fff; border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; margin-bottom: 15px; }
+        .box { background: #fff; border: 1px solid var(--border); padding: 16px; border-radius: 12px; margin-bottom: 15px; }
         .box-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; display: block; }
         label { display: block; font-size: 13px; color: #7f8c8d; margin: 12px 0 6px 0; font-weight: 600; }
-        input, select { width: 100% !important; height: 45px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; background-color: #fff; }
+        input, select { width: 100%; height: 45px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; background: #fff; -webkit-appearance: none; }
         .grid-2 { display: flex; gap: 10px; margin-top: 10px; }
         .grid-2 > div { flex: 1; }
         .dash-val { font-size: 22px; font-weight: 800; }
-        button { padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 700; border: none; cursor: pointer; }
-        .btn-main { background: var(--primary); color: #fff; width: 100%; }
-        .btn-sub { background: #f1f2f6; border: 1px solid #ccc; width: 100%; }
+        button { padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 700; border: none; cursor: pointer; width: 100%; }
+        .btn-main { background: var(--primary); color: #fff; }
+        .btn-sub { background: #f1f2f6; border: 1px solid #ccc; }
         .chart-container { position: relative; height: 250px; width: 100%; }
         .item { padding: 12px 0; border-bottom: 1px solid #f1f2f6; display: flex; justify-content: space-between; align-items: center; }
         .tag { background: #718093; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
@@ -43,34 +40,33 @@
         <div class="box">
             <div class="grid-2">
                 <div><label>總市值</label><div id="stat-value" class="dash-val" style="color:var(--primary)">$0</div></div>
-                <div><label>目前投入</label><div id="stat-net" class="dash-val">$0</div></div>
+                <div><label>總投入</label><div id="stat-net" class="dash-val">$0</div></div>
             </div>
             <div id="stat-roi" style="margin-top:10px; font-weight:bold; border-top:1px dashed #ddd; padding-top:10px;">$0 (0%)</div>
         </div>
         <div class="box">
-            <span class="box-title">📊 資產趨勢</span>
+            <span class="box-title">📊 資產趨勢圖</span>
             <div class="chart-container"><canvas id="assetChart"></canvas></div>
         </div>
         <div class="box">
             <span class="box-title">➕ 快速新增交易</span>
-            <label>標的</label><input type="text" id="f-target" placeholder="例如: 00675L" style="text-transform: uppercase;">
+            <label>標的</label><input type="text" id="f-target" placeholder="00675L" style="text-transform: uppercase;">
             <label>日期</label><input type="date" id="f-date">
             <div class="grid-2">
                 <div><label>股數</label><input type="number" id="f-shares" inputmode="decimal"></div>
                 <div><label>金額</label><input type="number" id="f-amount" inputmode="decimal"></div>
             </div>
-            <button class="btn-main" style="margin-top:15px;" onclick="quickSave()">儲存交易</button>
+            <button class="btn-main" style="margin-top:15px;" onclick="quickSave()">儲存交易紀錄</button>
         </div>
     </div>
 
     <div id="page-history" class="page">
         <h2 style="text-align:center;">📜 歷史管理</h2>
         <div class="box" style="background:#fffdf9; border-left:5px solid var(--warning);">
-            <span class="box-title">🕒 歷史點位補錄</span>
-            <label>選擇日期</label>
+            <span class="box-title" style="color:var(--warning);">🕒 歷史點位補錄</span>
             <input type="date" id="sync-history-date">
             <div id="sync-price-list" style="margin-top:10px;"></div>
-            <button class="btn-main" style="background:var(--warning); margin-top:10px;" onclick="saveHistoryPoint()">儲存該日快照</button>
+            <button class="btn-main" style="background:var(--warning); margin-top:10px;" onclick="saveHistoryPoint()">💾 儲存該日快照</button>
         </div>
         <div class="box">
             <span class="box-title">📋 交易明細</span>
@@ -81,13 +77,13 @@
     <div id="page-settings" class="page">
         <h2 style="text-align:center;">⚙️ 系統設定</h2>
         <div class="box">
-            <span class="box-title">💾 資料備份與恢復</span>
-            <div class="grid-2">
-                <button onclick="exportData()" class="btn-sub">📤 匯出 JSON</button>
-                <button onclick="document.getElementById('importFile').click()" class="btn-sub">📥 匯入 JSON</button>
-            </div>
+            <span class="box-title">💾 資料管理</span>
+            <button onclick="exportData()" class="btn-sub" style="margin-bottom:10px;">📤 匯出備份 (JSON)</button>
+            <button onclick="document.getElementById('importFile').click()" class="btn-sub">📥 匯入資料 (JSON)</button>
             <input type="file" id="importFile" style="display:none" onchange="importData(event)">
-            <p style="font-size:12px; color:gray; margin-top:10px;">* 如果匯入後沒反應，請確認帳戶選單是否切換到正確帳戶。</p>
+        </div>
+        <div class="box" style="border-top: 1px solid #eee;">
+            <button onclick="if(confirm('確定清除所有快取？')) { localStorage.clear(); location.reload(); }" style="color:red; background:none;">⚠️ 清除瀏覽器快取</button>
         </div>
     </div>
 
@@ -98,17 +94,12 @@
     </div>
 
     <script>
-        // 自動偵測不同版本的標籤
-        function getOldData(key) {
-            return localStorage.getItem('v11_' + key) || 
-                   localStorage.getItem('invest_v10_' + key) || 
-                   localStorage.getItem('invest_v9_' + key);
-        }
-
-        var records = JSON.parse(getOldData('recs')) || [];
-        var marketPrices = JSON.parse(getOldData('prices')) || {};
-        var assetHistory = JSON.parse(getOldData('hist')) || {};
-        var users = JSON.parse(getOldData('users')) || ['預設帳戶'];
+        // 資料載入邏輯
+        function getStore(key) { return JSON.parse(localStorage.getItem('v11_'+key) || localStorage.getItem('invest_v10_'+key) || 'null'); }
+        var records = getStore('recs') || [];
+        var marketPrices = getStore('prices') || {};
+        var assetHistory = getStore('hist') || {};
+        var users = getStore('users') || ['預設帳戶'];
         var chartInstance = null;
 
         function saveAll() {
@@ -155,6 +146,68 @@
             drawChart(user);
         }
 
+        function renderHistoryList() {
+            var user = document.getElementById('user-select').value;
+            var list = document.getElementById('records-list');
+            list.innerHTML = '';
+            var filtered = records.filter(r => r.user === user).sort((a,b) => new Date(b.date) - new Date(a.date));
+            if(filtered.length === 0) { list.innerHTML = '<p style="color:gray;text-align:center;">尚無交易紀錄</p>'; return; }
+            filtered.forEach((r, idx) => {
+                list.innerHTML += `<div class="item">
+                    <div><span class="tag">${r.target}</span> <small>${r.date}</small></div>
+                    <div style="text-align:right;"><b>$${r.amount.toLocaleString()}</b><br><small style="color:gray">${r.shares} 股</small></div>
+                </div>`;
+            });
+        }
+
+        function renderSyncPrices() {
+            var user = document.getElementById('user-select').value;
+            var container = document.getElementById('sync-price-list');
+            var targets = [...new Set(records.filter(r => r.user === user).map(r => r.target))];
+            container.innerHTML = targets.map(t => `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span>${t} 現價</span>
+                    <input type="number" class="sync-price-input" data-code="${t}" value="${(marketPrices[user]||{})[t] || ''}" style="width:120px;height:38px;">
+                </div>
+            `).join('');
+        }
+
+        function quickSave() {
+            var user = document.getElementById('user-select').value;
+            var target = document.getElementById('f-target').value.toUpperCase();
+            var date = document.getElementById('f-date').value;
+            var shares = parseFloat(document.getElementById('f-shares').value);
+            var amount = parseFloat(document.getElementById('f-amount').value);
+            if(!target || !date || isNaN(shares) || isNaN(amount)) return alert('請填寫完整資訊');
+            records.push({ user, target, date, shares, amount });
+            saveAll(); render(); alert('已儲存交易');
+        }
+
+        function saveHistoryPoint() {
+            var user = document.getElementById('user-select').value;
+            var date = document.getElementById('sync-history-date').value;
+            var inputs = document.getElementsByClassName('sync-price-input');
+            var dayVal = 0; var dayCost = 0;
+            var port = {};
+            records.filter(r => r.user === user && r.date <= date).forEach(r => {
+                port[r.target] = (port[r.target] || 0) + r.shares;
+                dayCost += r.amount;
+            });
+            for(let input of inputs) {
+                var p = parseFloat(input.value) || 0;
+                var code = input.dataset.code;
+                if(port[code]) dayVal += port[code] * p;
+                if(!marketPrices[user]) marketPrices[user] = {};
+                marketPrices[user][code] = p;
+            }
+            if(!assetHistory[user]) assetHistory[user] = [];
+            var exist = assetHistory[user].findIndex(h => h.date === date);
+            var snap = { date, value: Math.round(dayVal), cost: Math.round(dayCost) };
+            if(exist > -1) assetHistory[user][exist] = snap; else assetHistory[user].push(snap);
+            assetHistory[user].sort((a,b) => new Date(a.date) - new Date(b.date));
+            saveAll(); alert('歷史快照已更新'); render();
+        }
+
         function drawChart(user) {
             var ctx = document.getElementById('assetChart').getContext('2d');
             var data = assetHistory[user] || [];
@@ -163,8 +216,8 @@
                 type: 'line',
                 data: {
                     datasets: [
-                        { label: '市值', data: data.map(h => ({x:h.date, y:h.value})), borderColor: '#3a5fcd', fill: true, backgroundColor: 'rgba(58,95,205,0.1)' },
-                        { label: '成本', data: data.map(h => ({x:h.date, y:h.cost})), borderColor: '#999', borderDash: [5,5] }
+                        { label: '市值', data: data.map(h => ({x:h.date, y:h.value})), borderColor: '#3a5fcd', backgroundColor: 'rgba(58,95,205,0.1)', fill: true, tension: 0.3 },
+                        { label: '成本', data: data.map(h => ({x:h.date, y:h.cost})), borderColor: '#999', borderDash: [5,5], tension: 0 }
                     ]
                 },
                 options: { 
@@ -175,19 +228,19 @@
             });
         }
 
+        function exportData() {
+            const blob = new Blob([JSON.stringify({recs:records, prices:marketPrices, hist:assetHistory, users:users})], {type:'application/json'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `投資備份_${new Date().toISOString().split('T')[0]}.json`; a.click();
+        }
+
         function importData(e) {
             const reader = new FileReader();
             reader.onload = function(re) {
                 const data = JSON.parse(re.target.result);
-                // 強制讀取舊備份檔案欄位
-                records = data.recs || [];
-                marketPrices = data.prices || {};
-                assetHistory = data.hist || {};
-                users = data.users || ['預設帳戶'];
-                saveAll();
-                updateUserDropdown();
-                render();
-                alert('匯入成功！請確認帳戶選單是否切換正確。');
+                records = data.recs || []; marketPrices = data.prices || {};
+                assetHistory = data.hist || {}; users = data.users || ['預設帳戶'];
+                saveAll(); updateUserDropdown(); render(); alert('資料匯入成功！');
             };
             reader.readAsText(e.target.files[0]);
         }
@@ -199,12 +252,6 @@
         }
 
         function onUserChange() { render(); }
-        
-        // 其餘功能（略，維持與之前一致）
-        function quickSave() { /* ... */ }
-        function renderHistoryList() { /* ... */ }
-        function renderSyncPrices() { /* ... */ }
-
         init();
     </script>
 </body>
