@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>投資走勢管理系統 - 穩定修復版</title>
+    <title>投資走勢管理 - 完整功能版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -14,42 +14,43 @@
         body { font-family: -apple-system, sans-serif; background-color: #f8f9fa; padding: 15px; margin: 0; color: #2c3e50; }
         h1 { font-size: 20px; text-align: center; color: var(--primary); margin: 10px 0; }
         
-        .box { background: #fff; border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%; }
+        .box { background: #fff; border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%; overflow: hidden; }
         .box-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; display: block; }
         
         label { display: block; font-size: 13px; color: var(--text-sub); margin: 8px 0 4px 0; font-weight: 600; }
         
-        /* 🛠️ 日期框專屬修復：強制佔據整行，防止溢出 */
-        .full-width-input { width: 100% !important; display: block; margin-bottom: 5px; }
-        
+        /* 🛠️ 日期與輸入框修復 */
         input, select { 
-            width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; 
-            font-size: 16px; box-sizing: border-box; background: #fff;
-            -webkit-appearance: none; /* 去除 iOS 預設陰影 */
+            width: 100% !important; 
+            display: block;
+            padding: 12px; 
+            border: 1px solid #ccc; 
+            border-radius: 8px; 
+            font-size: 16px; 
+            box-sizing: border-box; /* 關鍵：確保 padding 不會撐大寬度 */
+            background: #fff;
+            margin-bottom: 5px;
         }
 
-        /* 讓日期選擇器在 iOS 上更好點擊且不跑位 */
-        input[type="date"] {
-            min-height: 44px;
-            position: relative;
-        }
-
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
         
         .dash-val { font-size: 22px; font-weight: 800; }
         .roi-up { color: var(--danger); }
         .roi-down { color: var(--success); }
 
-        button { width: 100%; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; border: none; margin-top: 10px; }
-        .btn-primary { background: var(--primary); color: #fff; }
-        .btn-warning { background: var(--warning); color: #fff; }
-
-        .chart-container { position: relative; height: 220px; width: 100%; }
+        button { padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; }
+        .btn-main { background: var(--primary); color: #fff; width: 100%; margin-top: 10px; }
+        .btn-small { padding: 6px 10px; font-size: 12px; font-weight: normal; margin-top: 5px; width: auto; }
+        
+        .chart-container { position: relative; height: 200px; width: 100%; }
         .item { padding: 12px 0; border-bottom: 1px solid #f1f2f6; display: flex; justify-content: space-between; align-items: center; }
         .tag { background: #718093; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-        .badge { color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
         
-        .action-btn { background: none; border: 1px solid #ccc; padding: 4px 8px; font-size: 12px; color: #666; width: auto; margin: 0 0 0 5px; }
+        /* 帳戶按鈕組 */
+        .user-actions { display: flex; gap: 5px; margin-top: 8px; }
+        .user-actions button { flex: 1; border: 1px solid #ddd; background: #f9f9f9; color: #333; }
+
+        .action-btn { background: none; border: 1px solid #ccc; padding: 4px 8px; font-size: 12px; color: #666; width: auto; margin-left: 5px; }
     </style>
 </head>
 <body>
@@ -57,36 +58,40 @@
     <h1>📈 投資走勢管理系統</h1>
 
     <div class="box" style="border-left: 5px solid var(--success);">
-        <label>👤 切換帳戶</label>
+        <span class="box-title" style="color: var(--success);">👤 帳戶管理</span>
         <select id="filter-user" onchange="onUserChange()"></select>
-        <button onclick="addUser()" style="font-size: 13px; padding: 5px; background: #eee; color: #333; margin-top: 8px;">➕ 新增帳戶</button>
+        <div class="user-actions">
+            <button onclick="addUser()">➕ 新增</button>
+            <button onclick="renameUser()">✎ 更名</button>
+            <button onclick="deleteUser()" style="color: var(--danger);">🗑️ 刪除</button>
+        </div>
     </div>
 
     <div class="box">
         <div class="grid-2">
             <div>
-                <label>當前總市值</label>
+                <label>總市值</label>
                 <div id="stat-value" class="dash-val" style="color: var(--primary);">$0</div>
             </div>
             <div>
-                <label>總投入成本</label>
+                <label>投入成本</label>
                 <div id="stat-net" class="dash-val">$0</div>
             </div>
         </div>
-        <div id="stat-roi" style="margin-top: 10px; font-weight: bold; padding-top: 10px; border-top: 1px dashed #ddd;">$0 (0.00%)</div>
+        <div id="stat-roi" style="margin-top: 10px; font-weight: bold; border-top: 1px dashed #ddd; padding-top: 8px;">$0 (0.00%)</div>
     </div>
 
     <div class="box">
-        <span class="box-title">📊 市值與成本走勢趨勢</span>
+        <span class="box-title">📊 資產趨勢圖</span>
         <div class="chart-container">
             <canvas id="assetChart"></canvas>
         </div>
     </div>
 
     <div class="box" style="background: #fffdf9; border-left: 5px solid var(--warning);">
-        <span class="box-title" style="color: var(--warning);">⚡ 快速更新現價</span>
+        <span class="box-title" style="color: var(--warning);">⚡ 更新今日現價</span>
         <div id="quick-sync-list"></div>
-        <button class="btn-warning" onclick="updateAllMarketValues()">💾 儲存現價並更新走勢</button>
+        <button class="btn-main" style="background: var(--warning);" onclick="updateAllMarketValues()">💾 儲存現價並更新走勢</button>
     </div>
 
     <div class="box">
@@ -94,10 +99,10 @@
         <input type="hidden" id="form-edit-index" value="-1">
         
         <label>投資標的</label>
-        <input type="text" id="form-target" placeholder="例如: 2330" class="full-width-input" style="text-transform: uppercase;">
+        <input type="text" id="form-target" placeholder="例如: QLD" style="text-transform: uppercase;">
         
         <label>交易日期</label>
-        <input type="date" id="form-date" class="full-width-input">
+        <input type="date" id="form-date">
         
         <label>交易類型</label>
         <select id="form-type" onchange="toggleFields()">
@@ -105,7 +110,7 @@
             <option value="withdraw">賣出 (拿回款項)</option>
         </select>
 
-        <div class="grid-2" style="margin-top: 10px;">
+        <div class="grid-2">
             <div>
                 <label id="lbl-shares">買入股數</label>
                 <input type="number" id="form-shares" inputmode="decimal">
@@ -116,11 +121,8 @@
             </div>
         </div>
 
-        <label>備註說明</label>
-        <input type="text" id="form-desc" placeholder="選填">
-
-        <button class="btn-primary" onclick="saveRecord()" id="btn-submit">確認儲存紀錄</button>
-        <button id="btn-cancel" onclick="cancelEdit()" style="display:none; background:#718093; color:white;">取消修改</button>
+        <button class="btn-main" onclick="saveRecord()" id="btn-submit">確認儲存紀錄</button>
+        <button id="btn-cancel" onclick="cancelEdit()" style="display:none; width:100%; margin-top:5px; padding:10px; border-radius:8px; background:#718093; color:white; border:none; font-weight:bold;">取消修改</button>
     </div>
 
     <div style="margin-bottom: 10px;">
@@ -129,24 +131,84 @@
     </div>
 
     <div class="box">
-        <span class="box-title">📋 歷史明細明細</span>
+        <span class="box-title">📋 交易明細</span>
         <div id="records-list"></div>
     </div>
 
     <script>
-        var records = JSON.parse(localStorage.getItem('invest_records_v7')) || [];
-        var marketPrices = JSON.parse(localStorage.getItem('invest_prices_v7')) || {};
-        var assetHistory = JSON.parse(localStorage.getItem('invest_history_v7')) || {};
-        var users = JSON.parse(localStorage.getItem('invest_users_v7')) || ['預設使用者'];
+        var records = JSON.parse(localStorage.getItem('invest_v8_recs')) || [];
+        var marketPrices = JSON.parse(localStorage.getItem('invest_v8_prices')) || {};
+        var assetHistory = JSON.parse(localStorage.getItem('invest_v8_hist')) || {};
+        var users = JSON.parse(localStorage.getItem('invest_v8_users')) || ['預設帳戶'];
         var chartInstance = null;
 
         function init() {
             document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
             updateUserDropdown();
-            updateTargetDropdowns();
-            render();
+            onUserChange();
         }
 
+        // --- 帳戶管理功能 ---
+        function addUser() {
+            var n = prompt('輸入新帳戶名稱:');
+            if(n && !users.includes(n)) {
+                users.push(n);
+                saveUsers();
+                updateUserDropdown();
+                document.getElementById('filter-user').value = n;
+                onUserChange();
+            }
+        }
+
+        function renameUser() {
+            var oldName = document.getElementById('filter-user').value;
+            var newName = prompt('將「' + oldName + '」重新命名為:', oldName);
+            if(newName && newName !== oldName) {
+                // 更新使用者列表
+                users = users.map(u => u === oldName ? newName : u);
+                // 更新紀錄
+                records.forEach(r => { if(r.user === oldName) r.user = newName; });
+                // 更新現價與歷史
+                if(marketPrices[oldName]) { marketPrices[newName] = marketPrices[oldName]; delete marketPrices[oldName]; }
+                if(assetHistory[oldName]) { assetHistory[newName] = assetHistory[oldName]; delete assetHistory[oldName]; }
+                
+                saveAll();
+                updateUserDropdown();
+                document.getElementById('filter-user').value = newName;
+                onUserChange();
+            }
+        }
+
+        function deleteUser() {
+            var user = document.getElementById('filter-user').value;
+            if(users.length <= 1) return alert('必須保留至少一個帳戶');
+            if(confirm('確定刪除「' + user + '」嗎？所有紀錄將被抹除且無法還原！')) {
+                records = records.filter(r => r.user !== user);
+                delete marketPrices[user];
+                delete assetHistory[user];
+                users = users.filter(u => u !== user);
+                saveAll();
+                updateUserDropdown();
+                onUserChange();
+            }
+        }
+
+        function saveUsers() { localStorage.setItem('invest_v8_users', JSON.stringify(users)); }
+        function saveAll() {
+            saveUsers();
+            localStorage.setItem('invest_v8_recs', JSON.stringify(records));
+            localStorage.setItem('invest_v8_prices', JSON.stringify(marketPrices));
+            localStorage.setItem('invest_v8_hist', JSON.stringify(assetHistory));
+        }
+
+        function updateUserDropdown() {
+            var s = document.getElementById('filter-user');
+            var current = s.value;
+            s.innerHTML = users.map(u => `<option value="${u}">${u}</option>`).join('');
+            if(users.includes(current)) s.value = current;
+        }
+
+        // --- 交易邏輯 ---
         function toggleFields() {
             var type = document.getElementById('form-type').value;
             document.getElementById('lbl-shares').innerText = type === 'withdraw' ? '賣出股數' : '買入股數';
@@ -162,22 +224,21 @@
             var amount = parseFloat(document.getElementById('form-amount').value) || 0;
             var editIdx = parseInt(document.getElementById('form-edit-index').value);
 
-            if(!target || !date || shares <= 0) return alert('請填寫完整資訊');
+            if(!target || !date || shares <= 0) return alert('請填寫完整');
 
             var data = { 
                 user, target, date, type, 
-                shares: type === 'withdraw' ? -Math.abs(shares) : Math.abs(shares),
-                amount: type === 'withdraw' ? -Math.abs(amount) : Math.abs(amount),
-                description: document.getElementById('form-desc').value
+                shares: type === 'withdraw' ? -shares : shares,
+                amount: type === 'withdraw' ? -amount : amount
             };
 
             if(editIdx === -1) records.push(data);
             else { records[editIdx] = data; cancelEdit(); }
 
-            localStorage.setItem('invest_records_v7', JSON.stringify(records));
+            localStorage.setItem('invest_v8_recs', JSON.stringify(records));
             updateTargetDropdowns();
             render();
-            // 重置
+            // Reset
             document.getElementById('form-target').value = '';
             document.getElementById('form-shares').value = '';
             document.getElementById('form-amount').value = '';
@@ -187,42 +248,37 @@
             var user = document.getElementById('filter-user').value;
             var inputs = document.getElementsByClassName('sync-price-input');
             if(!marketPrices[user]) marketPrices[user] = {};
-            
-            for(var i=0; i<inputs.length; i++){
+            for(var i=0; i<inputs.length; i++) {
                 var code = inputs[i].dataset.code;
                 var p = parseFloat(inputs[i].value) || 0;
                 if(p > 0) marketPrices[user][code] = p;
             }
-            localStorage.setItem('invest_prices_v7', JSON.stringify(marketPrices));
+            localStorage.setItem('invest_v8_prices', JSON.stringify(marketPrices));
             
-            // 快照今日市值至走勢圖
+            // 快照走勢
             var stats = calculateStats(user, 'ALL');
             var today = new Date().toISOString().split('T')[0];
             if(!assetHistory[user]) assetHistory[user] = [];
             var exist = assetHistory[user].findIndex(h => h.date === today);
-            var snapshot = { date: today, value: stats.totalValue, cost: stats.totalCost };
-            if(exist !== -1) assetHistory[user][exist] = snapshot;
-            else assetHistory[user].push(snapshot);
-            
+            var snap = { date: today, value: stats.totalValue, cost: stats.totalCost };
+            if(exist !== -1) assetHistory[user][exist] = snap;
+            else assetHistory[user].push(snap);
             assetHistory[user].sort((a,b) => new Date(a.date) - new Date(b.date));
-            localStorage.setItem('invest_history_v7', JSON.stringify(assetHistory));
+            localStorage.setItem('invest_v8_hist', JSON.stringify(assetHistory));
             render();
-            alert('現價與走勢已更新！');
+            alert('已更新市值走勢！');
         }
 
         function calculateStats(user, filterTarget) {
             var userRecs = records.filter(r => r.user === user);
             var prices = marketPrices[user] || {};
             var portfolio = {};
-            var totalCost = 0;
-            var totalValue = 0;
-
+            var totalCost = 0, totalValue = 0;
             userRecs.forEach(r => {
                 if(!portfolio[r.target]) portfolio[r.target] = { shares: 0, cost: 0 };
                 portfolio[r.target].shares += r.shares;
                 portfolio[r.target].cost += r.amount;
             });
-
             for(var code in portfolio){
                 if(filterTarget === 'ALL' || code === filterTarget){
                     if(portfolio[code].shares > 0.001){
@@ -239,54 +295,45 @@
             var filter = document.getElementById('filter-target').value || 'ALL';
             var stats = calculateStats(user, filter);
             
-            document.getElementById('stat-net').innerText = '$' + stats.totalCost.toLocaleString();
-            document.getElementById('stat-value').innerText = '$' + stats.totalValue.toLocaleString();
+            document.getElementById('stat-net').innerText = '$' + Math.round(stats.totalCost).toLocaleString();
+            document.getElementById('stat-value').innerText = '$' + Math.round(stats.totalValue).toLocaleString();
             
             var roiAmt = stats.totalValue - stats.totalCost;
             var roiPer = stats.totalCost > 0 ? (roiAmt / stats.totalCost * 100).toFixed(2) : '0.00';
             var roiDiv = document.getElementById('stat-roi');
-            roiDiv.innerText = `${roiAmt >= 0 ? '+' : ''}${roiAmt.toLocaleString()} (${roiPer}%)`;
+            roiDiv.innerText = `${roiAmt >= 0 ? '+' : ''}${Math.round(roiAmt).toLocaleString()} (${roiPer}%)`;
             roiDiv.className = roiAmt >= 0 ? 'roi-up' : 'roi-down';
 
-            // 列表
             var list = document.getElementById('records-list');
             list.innerHTML = '';
-            var displayRecs = records.map((r, i) => ({...r, originalIdx: i}))
+            var displayRecs = records.map((r, i) => ({...r, idx: i}))
                                      .filter(r => r.user === user && (filter === 'ALL' || r.target === filter))
                                      .sort((a,b) => new Date(b.date) - new Date(a.date));
 
             displayRecs.forEach(r => {
-                var item = document.createElement('div');
-                item.className = 'item';
-                item.innerHTML = `
-                    <div>
-                        <span class="tag">${r.target}</span> <small>${r.date}</small>
-                        <div style="font-size:12px; color:#666;">股數: ${Math.abs(r.shares)} | 金額: $${Math.abs(r.amount).toLocaleString()}</div>
-                    </div>
-                    <div>
-                        <button class="action-btn" onclick="editRecord(${r.originalIdx})">改</button>
-                        <button class="action-btn" onclick="deleteRecord(${r.originalIdx})">刪</button>
-                    </div>
-                `;
-                list.appendChild(item);
+                list.innerHTML += `
+                    <div class="item">
+                        <div><span class="tag">${r.target}</span> <small>${r.date}</small></div>
+                        <div>
+                            <span style="font-size:13px; font-weight:bold;">$${Math.abs(r.amount).toLocaleString()}</span>
+                            <button class="action-btn" onclick="editRecord(${r.idx})">改</button>
+                            <button class="action-btn" onclick="deleteRecord(${r.idx})" style="color:red">刪</button>
+                        </div>
+                    </div>`;
             });
 
-            // 更新快速同步
             var syncList = document.getElementById('quick-sync-list');
             syncList.innerHTML = '';
-            var portfolio = {};
-            records.filter(r => r.user === user).forEach(r => {
-                portfolio[r.target] = (portfolio[r.target] || 0) + r.shares;
-            });
-            for(var code in portfolio){
-                if(portfolio[code] > 0.001){
-                    syncList.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                        <span style="font-size:14px;">${code} (持有 ${portfolio[code]})</span>
-                        <input type="number" class="sync-price-input" data-code="${code}" value="${marketPrices[user][code] || ''}" style="width:80px; padding:4px;">
+            var port = {};
+            records.filter(r => r.user === user).forEach(r => { port[r.target] = (port[r.target] || 0) + r.shares; });
+            for(var code in port){
+                if(port[code] > 0.001){
+                    syncList.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                        <span style="font-size:14px;">${code} (${port[code].toFixed(1)})</span>
+                        <input type="number" class="sync-price-input" data-code="${code}" value="${marketPrices[user][code] || ''}" style="width:100px; margin:0;">
                     </div>`;
                 }
             }
-
             drawChart(user);
         }
 
@@ -299,11 +346,11 @@
                 data: {
                     labels: data.map(h => h.date),
                     datasets: [
-                        { label: '市值', data: data.map(h => h.value), borderColor: '#3a5fcd', tension: 0.2 },
-                        { label: '成本', data: data.map(h => h.cost), borderColor: '#ccc', borderDash: [5,5], tension: 0.2 }
+                        { label: '市值', data: data.map(h => h.value), borderColor: '#3a5fcd', backgroundColor: 'rgba(58,95,205,0.1)', fill: true, tension: 0.3 },
+                        { label: '成本', data: data.map(h => h.cost), borderColor: '#ccc', borderDash: [5,5], tension: 0 }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
 
@@ -315,7 +362,6 @@
             document.getElementById('form-type').value = r.type;
             document.getElementById('form-shares').value = Math.abs(r.shares);
             document.getElementById('form-amount').value = Math.abs(r.amount);
-            document.getElementById('form-desc').value = r.description || '';
             document.getElementById('form-title').innerText = '✏️ 修改紀錄';
             document.getElementById('btn-submit').innerText = '儲存修改';
             document.getElementById('btn-cancel').style.display = 'block';
@@ -328,33 +374,16 @@
             document.getElementById('form-title').innerText = '✨ 新增投資紀錄';
             document.getElementById('btn-submit').innerText = '確認儲存紀錄';
             document.getElementById('btn-cancel').style.display = 'none';
-            document.getElementById('form-target').value = '';
-            document.getElementById('form-shares').value = '';
-            document.getElementById('form-amount').value = '';
         }
 
         function deleteRecord(idx) {
-            if(confirm('確定刪除？')){
-                records.splice(idx, 1);
-                localStorage.setItem('invest_records_v7', JSON.stringify(records));
-                updateTargetDropdowns();
-                render();
-            }
-        }
-
-        function addUser() {
-            var n = prompt('名稱？'); if(n) { users.push(n); localStorage.setItem('invest_users_v7', JSON.stringify(users)); updateUserDropdown(); }
-        }
-
-        function updateUserDropdown() {
-            var s = document.getElementById('filter-user');
-            s.innerHTML = users.map(u => `<option value="${u}">${u}</option>`).join('');
+            if(confirm('刪除這筆紀錄？')){ records.splice(idx, 1); localStorage.setItem('invest_v8_recs', JSON.stringify(records)); updateTargetDropdowns(); render(); }
         }
 
         function updateTargetDropdowns() {
             var user = document.getElementById('filter-user').value;
             var tgs = [...new Set(records.filter(r => r.user === user).map(r => r.target))];
-            document.getElementById('filter-target').innerHTML = '<option value="ALL">顯示所有標的</option>' + tgs.map(t => `<option value="${t}">${t}</option>`).join('');
+            document.getElementById('filter-target').innerHTML = '<option value="ALL">全部標的</option>' + tgs.map(t => `<option value="${t}">${t}</option>`).join('');
         }
 
         function onUserChange() { updateTargetDropdowns(); render(); }
