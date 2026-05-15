@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>投資記帳與複利預測系統</title>
+    <title>台股自動估值投資記帳系統</title>
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #ffffff; color: #333333; padding: 15px; margin: 0; }
         h1 { font-size: 20px; text-align: center; color: #4472C4; margin-bottom: 15px; }
@@ -24,14 +24,8 @@
         }
 
         input[type="date"] {
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            min-width: 100% !important;
-            padding: 10px !important;
-            min-height: 44px;
-            box-sizing: border-box !important;
-            -webkit-appearance: none;
+            display: block !important; width: 100% !important; max-width: 100% !important;
+            min-width: 100% !important; padding: 10px !important; min-height: 44px; box-sizing: border-box !important;
         }
 
         button { width: 100%; padding: 12px; background-color: #4472C4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin-top: 12px; box-sizing: border-box; }
@@ -43,11 +37,14 @@
         .roi-down { color: #2ecc71; font-weight: bold; }
         .future-val { color: #8e44ad; font-weight: bold; font-size: 18px; }
         .del-user-btn { background-color: #e74c3c; margin-top: 8px; padding: 8px; font-size: 13px; width: 100%; }
+        
+        /* 🔄 自動更新按鈕專屬樣式 */
+        .api-btn { background-color: #f39c12; color: white; margin-bottom: 15px; margin-top: 0; }
     </style>
 </head>
 <body>
 
-    <h1>📈 投資記帳與複利預測系統</h1>
+    <h1>📈 投資記帳與自動市值系統</h1>
 
     <!-- 用戶管理區塊 -->
     <div class="box user-box">
@@ -65,6 +62,9 @@
         <button onclick="deleteUser()" class="del-user-btn">❌ 刪除當前所選使用者</button>
     </div>
 
+    <!-- 🔄 證交所 API 自動更新功能 -->
+    <button onclick="fetchTaiwanStockPrices()" class="api-btn">🔄 自動抓取證交所最新收盤價更新市值</button>
+
     <div>
         <label>🔍 切換檢視標的：</label>
         <select id="filter-target" onchange="render()"></select>
@@ -74,7 +74,7 @@
     <div class="box">
         <div class="row">
             <div>
-                <label>當前資產市值 (真實)</label>
+                <label>當前資產市值 (自動同步)</label>
                 <div id="stat-value" style="font-size: 18px; font-weight: bold; color: #f39c12;">$0</div>
             </div>
             <div>
@@ -117,8 +117,8 @@
     <div class="box">
         <b style="font-size:16px;">✨ 新增投資紀錄</b>
         
-        <label>投資標的名稱</label>
-        <input type="text" id="form-target" placeholder="例如：台積電、0050">
+        <label>投資標的代號 (請填純數字，例如：2330、0050、00675L)</label>
+        <input type="text" id="form-target" placeholder="例如：2330、0050">
 
         <label>日期</label>
         <input type="date" id="form-date">
@@ -130,7 +130,6 @@
             <option value="value_update">更新最新現價 (或總值)</option>
         </select>
 
-        <!-- 🛠️ 調整連動：改為主要填寫 股數 與 總金額 -->
         <div id="trade-group" class="grid-3">
             <div>
                 <label id="lbl-p2">買入股數</label>
@@ -161,7 +160,81 @@
         var records = JSON.parse(localStorage.getItem('multi_user_records_v4')) || [];
         var users = JSON.parse(localStorage.getItem('multi_users_list_v4')) || ['預設使用者'];
 
-        document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('form-date').value = new Date().toISOString().split('T');
+
+        // 🔄 透過臺灣證券交易所 OpenAPI 抓取當天最新收盤數據
+        async function fetchTaiwanStockPrices() {
+            var currentUser = document.getElementById('filter-user').value;
+            
+            // 1. 找出當前使用者手上有幾檔「正在持有」的標的代號
+            var myStocks = [];
+            var stockSharesMap = {};
+            for (var i = 0; i < records.length; i++) {
+                if (records[i].user === currentUser) {
+                    var t = records[i].target;
+                    if (records[i].transaction_type === 'deposit' || records[i].transaction_type === 'withdraw') {
+                        stockSharesMap[t] = (stockSharesMap[t] || 0) + records[i].shares;
+                    }
+                }
+            }
+            for (var code in stockSharesMap) {
+                if (stockSharesMap[code] > 0) myStocks.push(code);
+            }
+
+            if (myStocks.length === 0) return alert('ℹ️ 您名下目前沒有持股，不需同步！');
+
+            alert('⏳ 正在連線臺灣證券交易所 API 讀取最新市價，請稍候...');
+
+            try {
+                // 讀取證交所當日個股收盤行情大資料集
+                var response = await fetch('https://twse.com.tw');
+                if (!response.ok) throw new Error('API連線失敗');
+                var stockDataList = await response.json();
+
+                var updateCount = 0;
+                var todayStr = new Date().toISOString().split('T')[0];
+
+                // 2. 比對代號，抓取對應收盤價並寫入自動估值紀錄
+                for (var j = 0; j < stockDataList.length; j++) {
+                    var s = stockDataList[j];
+                    var stockCode = s.Code ? s.Code.trim() : "";
+                    
+                    if (myStocks.indexOf(stockCode) !== -1) {
+                        var closingPrice = parseFloat(s.ClosingPrice);
+                        if (!isNaN(closingPrice) && closingPrice > 0) {
+                            var currentShares = stockSharesMap[stockCode];
+                            var currentMarketVal = closingPrice * currentShares;
+
+                            // 自動寫入一筆最新市值估算
+                            records.push({
+                                user: currentUser,
+                                target: stockCode,
+                                date: todayStr,
+                                amount: 0,
+                                transaction_type: 'value_update',
+                                description: '🔄 系統自動同步證交所市價',
+                                current_value: currentMarketVal,
+                                price: closingPrice,
+                                shares: currentShares
+                            });
+                            updateCount++;
+                        }
+                    }
+                }
+
+                if (updateCount > 0) {
+                    localStorage.setItem('multi_user_records_v4', JSON.stringify(records));
+                    render();
+                    alert('✅ 成功同步 ' + updateCount + ' 檔台股標的之最新市值！');
+                } else {
+                    alert('ℹ️ 證交所尚未釋出當日收盤數據（通常於13:30後更新），或請確認標的代號是否輸入正確（如：2330）。');
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert('❌ 抓取失敗：可能正值證交所伺服器維護時間，或手機未連線網路。');
+            }
+        }
 
         function toggleFields() {
             var type = document.getElementById('form-type').value;
@@ -178,27 +251,16 @@
                 document.getElementById('lbl-p1').innerText = '最新單現價';
                 document.getElementById('lbl-p2').innerText = '現有總股數';
                 document.getElementById('lbl-amt').innerText = '或改填總市值';
-                priceInput.placeholder = "單價";
-                sharesInput.placeholder = "選填";
-                amtInput.placeholder = "選填";
+                priceInput.placeholder = "單價"; sharesInput.placeholder = "選填"; amtInput.placeholder = "選填";
             } else if (type === 'withdraw') {
-                document.getElementById('lbl-p1').innerText = '算出的單價';
-                document.getElementById('lbl-p2').innerText = '賣出股數';
-                document.getElementById('lbl-amt').innerText = '實際總拿回';
-                priceInput.placeholder = "自動計算";
-                sharesInput.placeholder = "股數";
-                amtInput.placeholder = "總額";
+                document.getElementById('lbl-p1').innerText = '算出的單價'; document.getElementById('lbl-p2').innerText = '賣出股數'; document.getElementById('lbl-amt').innerText = '實際總拿回';
+                priceInput.placeholder = "自動計算"; sharesInput.placeholder = "股數"; amtInput.placeholder = "總額";
             } else {
-                document.getElementById('lbl-p1').innerText = '算出的單價';
-                document.getElementById('lbl-p2').innerText = '買入股數';
-                document.getElementById('lbl-amt').innerText = '實際總扣款';
-                priceInput.placeholder = "自動計算";
-                sharesInput.placeholder = "股數";
-                amtInput.placeholder = "總額";
+                document.getElementById('lbl-p1').innerText = '算出的單價'; document.getElementById('lbl-p2').innerText = '買入股數'; document.getElementById('lbl-amt').innerText = '實際總扣款';
+                priceInput.placeholder = "自動計算"; sharesInput.placeholder = "股數"; amtInput.placeholder = "總額";
             }
         }
 
-        // 🛠️ 核心修改：用總額與股數反推單價
         function calcPrice() {
             var type = document.getElementById('form-type').value;
             var shares = parseFloat(document.getElementById('form-shares').value) || 0;
@@ -206,26 +268,19 @@
             var priceInput = document.getElementById('form-price');
             
             if (type !== 'value_update') {
-                if (shares > 0 && amount > 0) {
-                    priceInput.value = (amount / shares).toFixed(4);
-                } else {
-                    priceInput.value = '';
-                }
+                if (shares > 0 && amount > 0) priceInput.value = (amount / shares).toFixed(4);
+                else priceInput.value = '';
             } else {
-                // 市值更新模式：若填寫現價與總股數，則自動連動總市值
                 var price = parseFloat(priceInput.value) || 0;
-                if (shares > 0 && price > 0 && amount === 0) {
-                    document.getElementById('form-amount').value = (price * shares).toFixed(2);
-                }
+                if (shares > 0 && price > 0 && amount === 0) document.getElementById('form-amount').value = (price * shares).toFixed(2);
             }
         }
 
         function addUser() {
-            var name = prompt('請輸入新使用者名稱（例如：爸爸、媽媽、個人、公司）：');
+            var name = prompt('請輸入新使用者名稱（例如：爸爸、媽媽）：');
             if (!name) return;
             name = name.trim();
             if (users.indexOf(name) !== -1) return alert('此使用者名稱已存在');
-            
             users.push(name);
             localStorage.setItem('multi_users_list_v4', JSON.stringify(users));
             updateUserDropdown();
@@ -235,9 +290,8 @@
 
         function deleteUser() {
             var currentUser = document.getElementById('filter-user').value;
-            if (users.length <= 1) return alert('❌ 系統必須保留至少一位使用者，無法刪除最後一個帳戶。');
-            if (!confirm('⚠️ 確定要刪除使用者「' + currentUser + '」嗎？')) return;
-            if (!confirm('🚨 警告：刪除該用戶將會連帶「永久刪除」其名下的所有記帳與市值明細，且無法復原！確定要繼續嗎？')) return;
+            if (users.length <= 1) return alert('❌ 系統必須保留至少一位使用者。');
+            if (!confirm('⚠️ 確定要刪除使用者「' + currentUser + '」嗎？') || !confirm('🚨 警告：這會刪除其名下所有資料且無法復原！確定要繼續嗎？')) return;
             
             var updatedRecords = [];
             for (var i = 0; i < records.length; i++) {
@@ -251,29 +305,21 @@
             localStorage.setItem('multi_users_list_v4', JSON.stringify(users));
             
             updateUserDropdown();
-            document.getElementById('filter-user').value = users[0];
+            document.getElementById('filter-user').value = users;
             onUserChange();
-            alert('✅ 已成功刪除該使用者及其所有明細資料。');
         }
 
         function updateUserDropdown() {
             var userSelect = document.getElementById('filter-user');
-            var currentSel = userSelect.value || users[0];
+            var currentSel = userSelect.value || users;
             userSelect.innerHTML = '';
             for (var i = 0; i < users.length; i++) {
                 userSelect.innerHTML += '<option value="' + users[i] + '">' + users[i] + '</option>';
             }
-            if (users.indexOf(currentSel) !== -1) {
-                userSelect.value = currentSel;
-            } else {
-                userSelect.value = users[0];
-            }
+            userSelect.value = (users.indexOf(currentSel) !== -1) ? currentSel : users;
         }
 
-        function onUserChange() {
-            updateTargetDropdowns();
-            render();
-        }
+        function onUserChange() { updateTargetDropdowns(); render(); }
 
         function updateTargetDropdowns() {
             var currentUser = document.getElementById('filter-user').value;
@@ -302,7 +348,7 @@
             var price = parseFloat(document.getElementById('form-price').value) || 0;
             var desc = document.getElementById('form-desc').value.trim();
 
-            if (!target) return alert('請輸入投資標的名稱');
+            if (!target) return alert('請輸入投資標的代號');
             if (!date) return alert('請選擇日期');
             
             if (type !== 'value_update') {
@@ -313,24 +359,16 @@
             }
 
             var current_value = 0;
-            if (type === 'withdraw') { 
-                amount = -Math.abs(amount); 
-                shares = -Math.abs(shares);
-            } else if (type === 'value_update') { 
-                current_value = amount > 0 ? amount : (price * (shares || 1)); 
-                amount = 0; 
-            }
+            if (type === 'withdraw') { amount = -Math.abs(amount); shares = -Math.abs(shares); }
+            else if (type === 'value_update') { current_value = amount > 0 ? amount : (price * (shares || 1)); amount = 0; }
 
             records.push({ 
                 user: currentUser, target: target, date: date, amount: amount, 
-                transaction_type: type, description: desc, 
-                current_value: current_value, price: price, shares: shares 
+                transaction_type: type, description: desc, current_value: current_value, price: price, shares: shares 
             });
             
-            document.getElementById('form-price').value = '';
-            document.getElementById('form-shares').value = '';
-            document.getElementById('form-amount').value = '';
-            document.getElementById('form-desc').value = '';
+            document.getElementById('form-price').value = ''; document.getElementById('form-shares').value = '';
+            document.getElementById('form-amount').value = ''; document.getElementById('form-desc').value = '';
             
             localStorage.setItem('multi_user_records_v4', JSON.stringify(records));
             updateTargetDropdowns();
@@ -352,34 +390,27 @@
             var list = document.getElementById('records-list');
             list.innerHTML = '';
             
-            var totalNetInput = 0;
-            var totalLatestValue = 0;
-            var targetLatestValueMap = {};
-
+            var totalNetInput = 0; var totalLatestValue = 0; var targetLatestValueMap = {};
             var userRecords = [];
             for (var a = 0; a < records.length; a++) {
-                if (records[a].user === currentUser) { userRecords.push(records[a]); }
+                if (records[a].user === currentUser) userRecords.push(records[a]);
             }
 
             var sortedForCalc = userRecords.slice().sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
             for (var i = 0; i < sortedForCalc.length; i++) {
                 var r = sortedForCalc[i];
-                if (r.transaction_type === 'value_update') { 
-                    targetLatestValueMap[r.target] = r.current_value; 
-                }
+                if (r.transaction_type === 'value_update') targetLatestValueMap[r.target] = r.current_value;
             }
 
             for (var j = 0; j < userRecords.length; j++) {
                 var rec = userRecords[j];
                 if (filterTarget === 'ALL' || rec.target === filterTarget) {
-                    if (rec.transaction_type === 'deposit' || rec.transaction_type === 'withdraw') {
-                        totalNetInput += rec.amount;
-                    }
+                    if (rec.transaction_type === 'deposit' || rec.transaction_type === 'withdraw') totalNetInput += rec.amount;
                 }
             }
 
             if (filterTarget === 'ALL') {
-                for (var key in targetLatestValueMap) { totalLatestValue += targetLatestValueMap[key]; }
+                for (var key in targetLatestValueMap) totalLatestValue += targetLatestValueMap[key];
             } else {
                 totalLatestValue = targetLatestValueMap[filterTarget] || 0;
             }
@@ -397,15 +428,9 @@
             var fRate = parseFloat(document.getElementById('future-rate').value) || 0;
             var fYears = parseFloat(document.getElementById('future-years').value) || 0;
             var fInject = parseFloat(document.getElementById('future-annual-inject').value) || 0;
-            
-            var r_rate = fRate / 100;
-            var futureValue = totalLatestValue * Math.pow(1 + r_rate, fYears);
-            
-            if (r_rate > 0 && fInject > 0) {
-                futureValue += fInject * ((Math.pow(1 + r_rate, fYears) - 1) / r_rate) * (1 + r_rate);
-            } else {
-                futureValue += fInject * fYears;
-            }
+            var r_rate = fRate / 100; var futureValue = totalLatestValue * Math.pow(1 + r_rate, fYears);
+            if (r_rate > 0 && fInject > 0) futureValue += fInject * ((Math.pow(1 + r_rate, fYears) - 1) / r_rate) * (1 + r_rate);
+            else futureValue += fInject * fYears;
             
             document.getElementById('stat-future').innerText = '$' + Math.round(futureValue).toLocaleString() + ' 元';
 
@@ -413,36 +438,28 @@
             for (var k = 0; k < userRecords.length; k++) {
                 if (filterTarget === 'ALL' || userRecords[k].target === filterTarget) {
                     var realIdx = records.indexOf(userRecords[k]);
-                    var itemWithIdx = Object.assign({}, userRecords[k], { originalIdx: realIdx });
-                    displayedRecords.push(itemWithIdx);
+                    displayedRecords.push(Object.assign({}, userRecords[k], { originalIdx: realIdx }));
                 }
             }
             displayedRecords.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
 
             if (displayedRecords.length === 0) {
-                list.innerHTML = '<p style="color:#999999; text-align:center; padding:10px;">暫無紀錄</p>';
-                return;
+                list.innerHTML = '<p style="color:#999999; text-align:center; padding:10px;">暫無紀錄</p>'; return;
             }
 
             for (var m = 0; m < displayedRecords.length; m++) {
-                var rowData = displayedRecords[m];
-                var item = document.createElement('div');
-                item.className = 'item';
-                
+                var rowData = displayedRecords[m]; var item = document.createElement('div'); item.className = 'item';
                 var typeStr = '買入', badgeBg = '#e74c3c', displayAmt = '$' + Math.abs(rowData.amount).toLocaleString();
                 if (rowData.transaction_type === 'withdraw') { typeStr = '賣出'; badgeBg = '#2ecc71'; }
-                if (rowData.transaction_type === 'value_update') { 
-                    typeStr = '現值'; badgeBg = '#f39c12'; 
-                    displayAmt = '$' + rowData.current_value.toLocaleString(); 
-                }
+                if (rowData.transaction_type === 'value_update') { typeStr = '現值'; badgeBg = '#f39c12'; displayAmt = '$' + rowData.current_value.toLocaleString(); }
 
                 var detailStr = '';
                 if (rowData.transaction_type !== 'value_update' && rowData.price > 0) {
                     detailStr = '總額: ' + displayAmt + ' | 股數: ' + Math.abs(rowData.shares) + ' | 成本單價: $' + rowData.price.toFixed(2);
                 } else if (rowData.transaction_type === 'value_update') {
-                    detailStr = rowData.price > 0 ? '填寫現價: $' + rowData.price.toFixed(2) : '直接更新總值';
+                    detailStr = rowData.price > 0 ? '收盤現價: $' + rowData.price.toFixed(2) : '手動更新總值';
                 }
-                if (rowData.description) { detailStr += ' | ' + rowData.description; }
+                if (rowData.description) detailStr += ' | ' + rowData.description;
 
                 item.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
                     '<div>' +
@@ -458,9 +475,7 @@
             }
         }
 
-        updateUserDropdown();
-        updateTargetDropdowns();
-        render();
+        updateUserDropdown(); updateTargetDropdowns(); render();
     </script>
 </body>
 </html>
