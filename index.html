@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>投資記帳系統</title>
+    <title>投資記帳與複利預測系統</title>
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #ffffff; color: #333333; padding: 15px; margin: 0; }
         h1 { font-size: 20px; text-align: center; color: #4472C4; margin-bottom: 15px; }
         .box { background-color: #f8f9fa; border: 1px solid #dddddd; padding: 12px; border-radius: 8px; margin-bottom: 15px; }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         label { display: block; font-size: 13px; color: #666666; margin: 8px 0 3px 0; font-weight: bold; }
         input, select { width: 100%; padding: 10px; border: 1px solid #cccccc; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
@@ -19,36 +20,62 @@
         .badge { color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .roi-up { color: #e74c3c; font-weight: bold; }
         .roi-down { color: #2ecc71; font-weight: bold; }
+        .future-val { color: #8e44ad; font-weight: bold; font-size: 18px; }
     </style>
 </head>
 <body>
 
-    <h1>📈 多標的投資記帳系統</h1>
+    <h1>📈 投資記帳與複利預測系統</h1>
 
     <div>
         <label>🔍 切換檢視標的：</label>
         <select id="filter-target" onchange="render()"></select>
     </div>
 
+    <!-- 數據看板 -->
     <div class="box">
         <div class="row">
             <div>
-                <label>最新市值總計</label>
+                <label>當前資產市值 (真實)</label>
                 <div id="stat-value" style="font-size: 18px; font-weight: bold; color: #f39c12;">$0</div>
             </div>
             <div>
-                <label>累計淨投入成本</label>
+                <label>累計投入成本</label>
                 <div id="stat-net" style="font-size: 18px; font-weight: bold; color: #333333;">$0</div>
             </div>
         </div>
         <div class="row" style="margin-top: 5px; border-top: 1px dashed #ddd; padding-top: 5px;">
             <div>
-                <label>預估未實現損益 / 報酬率</label>
+                <label>歷史未實現損益 / 報酬率</label>
                 <div id="stat-roi" style="font-size: 16px; font-weight: bold;">$0 (0.00%)</div>
             </div>
         </div>
     </div>
 
+    <!-- 未來複利預測模型 -->
+    <div class="box" style="border: 1px solid #8e44ad; background-color: #faf5ff;">
+        <b style="font-size:15px; color:#8e44ad;">🔮 未來資產複利增長預測 (包含每年再投入)</b>
+        <div class="grid-2">
+            <div>
+                <label>預估年化報酬率 (%)</label>
+                <input type="number" id="future-rate" value="12" placeholder="例如: 12" inputmode="decimal" oninput="render()">
+            </div>
+            <div>
+                <label>預估持有年數 (年)</label>
+                <input type="number" id="future-years" value="5" placeholder="例如: 5" inputmode="numeric" oninput="render()">
+            </div>
+        </div>
+        <div>
+            <label>未來每年固定「再投入金額」</label>
+            <input type="number" id="future-annual-inject" value="100000" placeholder="例如: 100000" inputmode="numeric" oninput="render()">
+        </div>
+        <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid #e8dbf3;">
+            <label style="margin-top:0;">🎯 複利滾存 + 持續投入後的未來總值：</label>
+            <div id="stat-future" class="future-val">$0</div>
+        </div>
+    </div>
+
+    <!-- 新增紀錄 -->
     <div class="box">
         <b style="font-size:16px;">✨ 新增投資紀錄</b>
         
@@ -65,7 +92,6 @@
             <option value="value_update">更新最新現價 (現值)</option>
         </select>
 
-        <!-- 買入賣出時顯示的股數與單價 -->
         <div id="trade-group" class="grid-3">
             <div>
                 <label id="lbl-p1">買入單價</label>
@@ -102,7 +128,6 @@
             var sharesInput = document.getElementById('form-shares');
             var amtInput = document.getElementById('form-amount');
             
-            // 清空暫存
             priceInput.value = ''; sharesInput.value = ''; amtInput.value = '';
 
             if (type === 'value_update') {
@@ -124,14 +149,10 @@
             var type = document.getElementById('form-type').value;
             var price = parseFloat(document.getElementById('form-price').value) || 0;
             var shares = parseFloat(document.getElementById('form-shares').value) || 0;
-            
             if (type !== 'value_update') {
                 document.getElementById('form-amount').value = (price * shares).toFixed(2);
             } else {
-                // 如果是市值更新，若有輸入股數就幫忙算總值，沒輸入就當作直接填總市值
-                if(shares > 0) {
-                    document.getElementById('form-amount').value = (price * shares).toFixed(2);
-                }
+                if(shares > 0) document.getElementById('form-amount').value = (price * shares).toFixed(2);
             }
         }
 
@@ -231,7 +252,6 @@
                 totalLatestValue = targetLatestValueMap[filterTarget] || 0;
             }
 
-            // 計算 ROI
             var roiAmt = totalLatestValue - totalNetInput;
             var roiPercent = totalNetInput > 0 ? (roiAmt / totalNetInput * 100).toFixed(2) : '0.00';
             
@@ -241,6 +261,23 @@
             var roiDiv = document.getElementById('stat-roi');
             roiDiv.innerText = (roiAmt >= 0 ? '+' : '') + roiAmt.toLocaleString(undefined, {maximumFractionDigits:2}) + ' (' + roiPercent + '%)';
             roiDiv.className = roiAmt >= 0 ? 'roi-up' : 'roi-down';
+
+            // 高級複利預測邏輯 (基礎資產複利 + 每年期初投入複利)
+            var fRate = parseFloat(document.getElementById('future-rate').value) || 0;
+            var fYears = parseFloat(document.getElementById('future-years').value) || 0;
+            var fInject = parseFloat(document.getElementById('future-annual-inject').value) || 0;
+            
+            var r_rate = fRate / 100;
+            var futureValue = totalLatestValue * Math.pow(1 + r_rate, fYears); // 現有市值滾存
+            
+            // 期初年金複利計算公式
+            if (r_rate > 0 && fInject > 0) {
+                futureValue += fInject * ((Math.pow(1 + r_rate, fYears) - 1) / r_rate) * (1 + r_rate);
+            } else {
+                futureValue += fInject * fYears; // 利率為0的情況
+            }
+            
+            document.getElementById('stat-future').innerText = '$' + Math.round(futureValue).toLocaleString() + ' 元';
 
             var displayedRecords = [];
             for (var k = 0; k < records.length; k++) {
@@ -268,16 +305,13 @@
                     displayAmt = '$' + rowData.current_value.toLocaleString(); 
                 }
 
-                // 詳情文字組合
                 var detailStr = '';
                 if (rowData.transaction_type !== 'value_update' && rowData.price > 0) {
                     detailStr = '價格: $' + rowData.price + ' | 股數: ' + Math.abs(rowData.shares);
                 } else if (rowData.transaction_type === 'value_update' && rowData.price > 0) {
                     detailStr = '現價: $' + rowData.price + (rowData.shares > 0 ? ' | 總股數: ' + rowData.shares : '');
                 }
-                if (rowData.description) {
-                    detailStr += (detailStr ? ' | ' : '') + rowData.description;
-                }
+                if (rowData.description) { detailStr += (detailStr ? ' | ' : '') + rowData.description; }
 
                 item.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
                     '<div>' +
