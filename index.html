@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>投資走勢分析系統 - 支援明細刪除版</title>
+    <title>投資走勢分析系統 - 終極修復版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <style>
@@ -31,20 +31,15 @@
         .tag-buy { background: var(--danger); }
         .tag-sell { background: var(--success); }
         .roi-up { color: var(--danger); } .roi-down { color: var(--success); }
-        
         .type-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #ccc; margin-top: 6px; }
         .type-btn { flex: 1; height: 40px; background: #f1f2f6; color: #333; font-weight: bold; border-radius: 0; text-align: center; line-height: 40px; cursor: pointer; }
         .type-btn.active-buy { background: var(--danger); color: white; }
         .type-btn.active-sell { background: var(--success); color: white; }
-
-        /* 新增：小尺寸刪除按鈕樣式 */
         .btn-inline-del { background: none; color: #999; border: 1px solid #ccc; padding: 4px 8px; width: auto; font-size: 11px; border-radius: 4px; margin-left: 10px; font-weight: normal; }
-        .btn-inline-del:hover { color: var(--danger); border-color: var(--danger); }
     </style>
 </head>
 <body>
 
-    <!-- 頁面 1：首頁 -->
     <div id="page-home" class="page active">
         <h2 style="text-align:center;">🏠 我的投資首頁</h2>
         <div class="box" style="border-left: 5px solid var(--primary);">
@@ -63,25 +58,22 @@
         </div>
         <div class="box">
             <span class="box-title">➕ 快速新增交易</span>
-            
             <label>交易類型</label>
             <div class="type-toggle">
                 <div id="toggle-buy" class="type-btn active-buy" onclick="setTxType('BUY')">買進 (BUY)</div>
                 <div id="toggle-sell" class="type-btn" onclick="setTxType('SELL')">賣出 (SELL)</div>
             </div>
             <input type="hidden" id="f-type" value="BUY">
-
             <label>標的</label><input type="text" id="f-target" placeholder="例如: 00675L" style="text-transform: uppercase;">
             <label>日期</label><input type="date" id="f-date">
             <div class="grid-2">
                 <div><label>股數</label><input type="number" id="f-shares" inputmode="decimal" placeholder="0"></div>
-                <div><label>總金額 (含手續費)</label><input type="number" id="f-amount" inputmode="decimal" placeholder="0"></div>
+                <div><label>總金額</label><input type="number" id="f-amount" inputmode="decimal" placeholder="0"></div>
             </div>
             <button class="btn-main" style="margin-top:15px;" onclick="quickSave()">儲存交易紀錄</button>
         </div>
     </div>
 
-    <!-- 頁面 2：歷史管理 -->
     <div id="page-history" class="page">
         <h2 style="text-align:center;">📜 歷史管理</h2>
         <div class="box" style="background:#fffdf9; border-left:5px solid var(--warning);">
@@ -92,12 +84,11 @@
             <button class="btn-main" style="background:var(--warning); margin-top:10px;" onclick="saveHistoryPoint()">💾 儲存該日歷史快照</button>
         </div>
         <div class="box">
-            <span class="box-title">📋 交易明細 (記錯可在此刪除)</span>
+            <span class="box-title">📋 交易明細</span>
             <div id="records-list"></div>
         </div>
     </div>
 
-    <!-- 頁面 3：系統設定 -->
     <div id="page-settings" class="page">
         <h2 style="text-align:center;">⚙️ 系統設定</h2>
         <div class="box">
@@ -106,8 +97,6 @@
                 <input type="text" id="new-user-name" placeholder="輸入帳戶名稱" style="flex: 2;">
                 <button class="btn-main" id="btn-user-action" onclick="addUser()" style="flex: 1; height: 45px;">新增帳戶</button>
             </div>
-            <input type="hidden" id="edit-user-old-name">
-            <button class="btn-sub" id="btn-cancel-edit" style="display:none; margin-bottom:10px;" onclick="cancelEditUser()">❌ 取消修改名稱</button>
             <div id="user-management-list"></div>
         </div>
         <div class="box">
@@ -116,12 +105,8 @@
             <button onclick="document.getElementById('importFile').click()" class="btn-sub">📥 匯入資料 (JSON)</button>
             <input type="file" id="importFile" style="display:none" onchange="importData(event)">
         </div>
-        <div class="box" style="border-top: 1px solid #eee;">
-            <button onclick="if(confirm('確定清除所有快取？這將刪除所有本機記帳資料！')) { localStorage.clear(); location.reload(); }" style="color:red; background:none; border:none; cursor:pointer;">⚠️ 清除瀏覽器快取</button>
-        </div>
     </div>
 
-    <!-- 底部導覽列 -->
     <div class="nav-bar">
         <div class="nav-item active" onclick="switchPage('home', this)">首頁</div>
         <div class="nav-item" onclick="switchPage('history', this)">歷史</div>
@@ -129,8 +114,8 @@
     </div>
 
     <script>
+        // --- 1. 資料存取 ---
         function getStore(key) { return JSON.parse(localStorage.getItem('v12_'+key) || localStorage.getItem('v11_'+key) || 'null'); }
-        
         var records = getStore('recs') || [];
         var marketPrices = getStore('prices') || {}; 
         var assetHistory = getStore('hist') || {};   
@@ -144,60 +129,56 @@
             localStorage.setItem('v12_users', JSON.stringify(users));
         }
 
+        // --- 2. 資料結構修復 (防止 deposit 變賣出) ---
+        function repairData() {
+            let changed = false;
+            records.forEach(r => {
+                if (r.type !== 'BUY' && r.type !== 'SELL') {
+                    r.type = 'BUY'; 
+                    changed = true;
+                }
+            });
+            if (changed) saveAll();
+        }
+
         function init() {
+            repairData();
             updateUserDropdown();
             render();
             document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
             document.getElementById('sync-history-date').value = new Date().toISOString().split('T')[0];
         }
 
-        function setTxType(type) {
-            document.getElementById('f-type').value = type;
-            if(type === 'BUY') {
-                document.getElementById('toggle-buy').classList.add('active-buy');
-                document.getElementById('toggle-sell').classList.remove('active-sell');
-            } else {
-                document.getElementById('toggle-buy').classList.remove('active-buy');
-                document.getElementById('toggle-sell').classList.add('active-sell');
-            }
-        }
-
+        // --- 3. 頁面邏輯 ---
         function switchPage(pageId, el) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById('page-' + pageId).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             el.classList.add('active');
-            
             if(pageId === 'home') render();
             if(pageId === 'history') { renderHistoryList(); renderSyncPrices(); }
-            if(pageId === 'settings') { cancelEditUser(); renderSettingsUsers(); }
+            if(pageId === 'settings') renderSettingsUsers();
+        }
+
+        function setTxType(type) {
+            document.getElementById('f-type').value = type;
+            document.getElementById('toggle-buy').className = 'type-btn' + (type === 'BUY' ? ' active-buy' : '');
+            document.getElementById('toggle-sell').className = 'type-btn' + (type === 'SELL' ? ' active-sell' : '');
         }
 
         function calculatePortfolio(user, untilDate = '9999-12-31') {
-            var filteredRecs = records
-                .filter(r => r.user === user && r.date <= untilDate)
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
-
+            var filteredRecs = records.filter(r => r.user === user && r.date <= untilDate).sort((a, b) => new Date(a.date) - new Date(b.date));
             var port = {};
-            
             filteredRecs.forEach(r => {
-                var target = r.target;
-                var type = r.type || 'BUY';
-                
-                if (!port[target]) {
-                    port[target] = { shares: 0, avgCost: 0 };
-                }
-                
-                if (type === 'BUY') {
-                    var totalCost = (port[target].shares * port[target].avgCost) + r.amount;
-                    port[target].shares += r.shares;
-                    port[target].avgCost = port[target].shares > 0 ? (totalCost / port[target].shares) : 0;
-                } else if (type === 'SELL') {
-                    port[target].shares -= r.shares;
-                    if (port[target].shares < 0) port[target].shares = 0;
+                if (!port[r.target]) port[r.target] = { shares: 0, avgCost: 0 };
+                if (r.type === 'SELL') {
+                    port[r.target].shares -= r.shares;
+                } else {
+                    var totalCost = (port[r.target].shares * port[r.target].avgCost) + r.amount;
+                    port[r.target].shares += r.shares;
+                    port[r.target].avgCost = port[r.target].shares > 0 ? (totalCost / port[r.target].shares) : 0;
                 }
             });
-            
             return port;
         }
 
@@ -205,16 +186,12 @@
             var user = document.getElementById('user-select').value;
             if(!user) return;
             var prs = marketPrices[user] || {};
-            
             var port = calculatePortfolio(user);
-            
             var tCost = 0; var tValue = 0;
             for(var c in port) {
-                var currentStockCost = port[c].shares * port[c].avgCost;
-                tCost += currentStockCost;
+                tCost += port[c].shares * port[c].avgCost;
                 tValue += port[c].shares * (prs[c] || 0);
             }
-            
             document.getElementById('stat-net').innerText = '$' + Math.round(tCost).toLocaleString();
             document.getElementById('stat-value').innerText = '$' + Math.round(tValue).toLocaleString();
             var roi = tValue - tCost;
@@ -224,75 +201,92 @@
             drawChart(user);
         }
 
-        // 修改處：明細加上「刪除」功能
         function renderHistoryList() {
             var user = document.getElementById('user-select').value;
             var list = document.getElementById('records-list');
             list.innerHTML = '';
-            
-            // 為了在排序後還能找到原始陣列的 index，我們帶上原始索引物件
             var indexedRecs = records.map((r, index) => ({ r, index }));
             var filtered = indexedRecs.filter(item => item.r.user === user).sort((a,b) => new Date(b.r.date) - new Date(a.r.date));
-            
-            if(filtered.length === 0) { list.innerHTML = '<p style="color:gray;text-align:center;">尚無交易紀錄</p>'; return; }
-            
-            filtered.forEach((item) => {
+            filtered.forEach(item => {
                 var r = item.r;
-                var origIndex = item.index;
-                var type = r.type || 'BUY';
-                var typeText = type === 'BUY' ? '買進' : '賣出';
-                var tagClass = type === 'BUY' ? 'tag-buy' : 'tag-sell';
-                
+                var type = r.type === 'SELL' ? 'SELL' : 'BUY';
                 list.innerHTML += `<div class="item">
-                    <div>
-                        <span class="tag ${tagClass}">${typeText} · ${r.target}</span> 
-                        <small>${r.date}</small>
-                        <button class="btn-inline-del" onclick="deleteRecord(${origIndex})">🗑️ 刪除</button>
-                    </div>
-                    <div style="text-align:right;"><b>$${r.amount.toLocaleString()}</b><br><small style="color:gray">${r.shares.toLocaleString()} 股</small></div>
+                    <div><span class="tag ${type==='BUY'?'tag-buy':'tag-sell'}">${type==='BUY'?'買進':'賣出'} · ${r.target}</span> <small>${r.date}</small>
+                    <button class="btn-inline-del" onclick="deleteRecord(${item.index})">🗑️</button></div>
+                    <div style="text-align:right;"><b>$${Math.round(r.amount).toLocaleString()}</b><br><small>${r.shares.toLocaleString()} 股</small></div>
                 </div>`;
             });
         }
 
-        // 新增函數：刪除特定交易紀錄
         function deleteRecord(index) {
-            var targetRec = records[index];
-            if (!targetRec) return;
-            
-            if (confirm(`確定要刪除這筆交易紀錄嗎？\n【${targetRec.date} | ${targetRec.target} | ${targetRec.type === 'SELL' ? '賣出' : '買進'} ${targetRec.shares}股】`)) {
-                // 從陣列中移除
-                records.splice(index, 1);
-                saveAll();
-                // 重新渲染歷史清單與首頁數據
-                renderHistoryList();
-                renderSyncPrices();
-                render();
-                alert('紀錄已刪除，資產與成本已重新計算！');
-            }
+            if(confirm('確定要刪除這筆紀錄嗎？')) { records.splice(index, 1); saveAll(); render(); renderHistoryList(); }
         }
 
+        // --- 4. 圖表繪製 (修復 1970 問題) ---
+        function drawChart(user) {
+            var ctx = document.getElementById('assetChart').getContext('2d');
+            var rawData = assetHistory[user] || [];
+            
+            // 過濾掉不合理的年份並排序
+            var cleanData = rawData.filter(h => {
+                var d = new Date(h.date);
+                return d.getFullYear() > 2000;
+            }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            if (chartInstance) chartInstance.destroy();
+            if (cleanData.length === 0) return;
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        { label: '市值', data: cleanData.map(h => ({x:h.date, y:h.value})), borderColor: '#3a5fcd', backgroundColor: 'rgba(58,95,205,0.1)', fill: true, tension: 0.3 },
+                        { label: '成本', data: cleanData.map(h => ({x:h.date, y:h.cost})), borderColor: '#999', borderDash: [5,5], tension: 0 }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: { 
+                        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } }, min: cleanData[0].date },
+                        y: { beginAtZero: false }
+                    },
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        // --- 5. 帳戶與同步功能 ---
         function renderSyncPrices() {
             var user = document.getElementById('user-select').value;
             var date = document.getElementById('sync-history-date').value;
-            var container = document.getElementById('sync-price-list');
-            
             var port = calculatePortfolio(user, date);
-            var targets = [];
-            for (var c in port) {
-                if (port[c].shares > 0) targets.push(c);
-            }
-            
-            if(targets.length === 0) {
-                container.innerHTML = '<p style="color:gray;font-size:13px;text-align:center;padding:10px 0;">該日期前無庫存標的，無需補錄。</p>';
-                return;
-            }
-            
-            container.innerHTML = '<label>請輸入該日當天的收盤單價：</label>' + targets.map(t => `
+            var targets = Object.keys(port).filter(t => port[t].shares > 0);
+            var container = document.getElementById('sync-price-list');
+            container.innerHTML = targets.length ? '<label>該日收盤單價：</label>' + targets.map(t => `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <span style="font-size:14px; font-weight:bold;">${t} (庫存:${Math.round(port[t].shares)})</span>
-                    <input type="number" class="sync-price-input" data-code="${t}" value="${(marketPrices[user]||{})[t] || ''}" style="width:140px;height:38px;" placeholder="單價">
-                </div>
-            `).join('');
+                    <span style="font-size:14px;">${t} (${Math.round(port[t].shares)}股)</span>
+                    <input type="number" class="sync-price-input" data-code="${t}" style="width:120px;">
+                </div>`).join('') : '<p style="color:gray;text-align:center;">無庫存</p>';
+        }
+
+        function saveHistoryPoint() {
+            var user = document.getElementById('user-select').value;
+            var date = document.getElementById('sync-history-date').value;
+            var inputs = document.getElementsByClassName('sync-price-input');
+            var dayVal = 0; var dayCost = 0;
+            var port = calculatePortfolio(user, date);
+            for(let input of inputs) {
+                var p = parseFloat(input.value) || 0;
+                var code = input.dataset.code;
+                dayVal += port[code].shares * p;
+                dayCost += port[code].shares * port[code].avgCost;
+            }
+            if(!assetHistory[user]) assetHistory[user] = [];
+            var exist = assetHistory[user].findIndex(h => h.date === date);
+            var snap = { date, value: Math.round(dayVal), cost: Math.round(dayCost) };
+            if(exist > -1) assetHistory[user][exist] = snap; else assetHistory[user].push(snap);
+            saveAll(); render(); alert('儲存成功');
         }
 
         function quickSave() {
@@ -302,223 +296,49 @@
             var date = document.getElementById('f-date').value;
             var shares = parseFloat(document.getElementById('f-shares').value);
             var amount = parseFloat(document.getElementById('f-amount').value);
-            
-            if(!target || !date || isNaN(shares) || isNaN(amount)) return alert('請填寫完整交易資訊');
-            
-            if (type === 'SELL') {
-                var currentPort = calculatePortfolio(user, date);
-                var currentShares = (currentPort[target] ? currentPort[target].shares : 0);
-                if (currentShares < shares) {
-                    return alert(`餘額不足！截至 ${date} 您持有的 ${target} 僅有 ${currentShares.toLocaleString()} 股，無法賣出 ${shares.toLocaleString()} 股。`);
-                }
-            }
-            
+            if(!target || isNaN(shares) || isNaN(amount)) return alert('請填寫完整');
             records.push({ user, type, target, date, shares, amount });
-            
-            if(!marketPrices[user]) marketPrices[user] = {};
-            if(!marketPrices[user][target] || type === 'SELL') {
-                marketPrices[user][target] = amount / shares; 
-            }
-
-            saveAll(); 
-            render(); 
-            alert('交易紀錄已成功儲存！');
-            
+            saveAll(); render(); alert('儲存成功');
             document.getElementById('f-target').value = '';
             document.getElementById('f-shares').value = '';
             document.getElementById('f-amount').value = '';
-            setTxType('BUY');
-        }
-
-        function saveHistoryPoint() {
-            var user = document.getElementById('user-select').value;
-            var date = document.getElementById('sync-history-date').value;
-            var inputs = document.getElementsByClassName('sync-price-input');
-            
-            if(inputs.length === 0) return alert('沒有可儲存的標的資料');
-
-            var dayVal = 0; var dayCost = 0;
-            var port = calculatePortfolio(user, date);
-            
-            for(let input of inputs) {
-                var p = parseFloat(input.value) || 0;
-                var code = input.dataset.code;
-                
-                if(port[code]) {
-                    dayVal += port[code].shares * p;
-                    dayCost += port[code].shares * port[code].avgCost;
-                }
-                
-                var todayStr = new Date().toISOString().split('T')[0];
-                if(date === todayStr) {
-                    if(!marketPrices[user]) marketPrices[user] = {};
-                    marketPrices[user][code] = p;
-                }
-            }
-            
-            if(!assetHistory[user]) assetHistory[user] = [];
-            var exist = assetHistory[user].findIndex(h => h.date === date);
-            var snap = { date, value: Math.round(dayVal), cost: Math.round(dayCost) };
-            
-            if(exist > -1) assetHistory[user][exist] = snap; 
-            else assetHistory[user].push(snap);
-            
-            assetHistory[user].sort((a,b) => new Date(a.date) - new Date(b.date));
-            
-            saveAll(); 
-            alert(`${date} 歷史快照更新成功！`); 
-            render();
-        }
-
-        function drawChart(user) {
-            var ctx = document.getElementById('assetChart').getContext('2d');
-            var data = assetHistory[user] || [];
-            if(chartInstance) chartInstance.destroy();
-            
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    datasets: [
-                        { label: '歷史庫存市值', data: data.map(h => ({x:h.date, y:h.value})), borderColor: '#3a5fcd', backgroundColor: 'rgba(58,95,205,0.1)', fill: true, tension: 0.3 },
-                        { label: '歷史庫存成本', data: data.map(h => ({x:h.cost===undefined?h.net:h.cost, y:h.cost===undefined?h.net:h.cost})), borderColor: '#999', borderDash: [5,5], tension: 0 }
-                    ]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    scales: { x: { type: 'time', time: { unit: 'month' } } },
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
-        }
-
-        function renderSettingsUsers() {
-            var list = document.getElementById('user-management-list');
-            list.innerHTML = users.map(u => `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #eee;">
-                    <span style="font-weight:600;">${u}</span>
-                    <div style="display:flex; gap:6px;">
-                        <button class="btn-sub" style="width:60px; padding:6px; font-size:12px; margin:0;" onclick="startEditUser('${u}')">改名</button>
-                        <button class="btn-danger" style="width:60px; padding:6px; font-size:12px; margin:0;" onclick="deleteUser('${u}')">刪除</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function addUser() {
-            var nameInput = document.getElementById('new-user-name');
-            var name = nameInput.value.trim();
-            if(!name) return alert('請輸入帳戶名稱');
-            if(users.includes(name)) return alert('帳戶名稱已存在');
-            users.push(name);
-            saveAll();
-            updateUserDropdown();
-            renderSettingsUsers();
-            nameInput.value = '';
-            alert(`已成功新增帳戶: ${name}`);
-        }
-
-        function startEditUser(oldName) {
-            document.getElementById('new-user-name').value = oldName;
-            document.getElementById('edit-user-old-name').value = oldName;
-            document.getElementById('btn-user-action').innerText = '確認改名';
-            document.getElementById('btn-user-action').setAttribute('onclick', 'renameUser()');
-            document.getElementById('btn-cancel-edit').style.display = 'block';
-            document.getElementById('new-user-name').focus();
-        }
-
-        function cancelEditUser() {
-            document.getElementById('new-user-name').value = '';
-            document.getElementById('edit-user-old-name').value = '';
-            document.getElementById('btn-user-action').innerText = '新增帳戶';
-            document.getElementById('btn-user-action').setAttribute('onclick', 'addUser()');
-            document.getElementById('btn-cancel-edit').style.display = 'none';
-        }
-
-        function renameUser() {
-            var oldName = document.getElementById('edit-user-old-name').value;
-            var newName = document.getElementById('new-user-name').value.trim();
-            
-            if (!newName) return alert('帳戶名稱不能為空');
-            if (oldName === newName) { cancelEditUser(); return; }
-            if (users.includes(newName)) return alert('此帳戶名稱已存在');
-            
-            var userIndex = users.indexOf(oldName);
-            if (userIndex > -1) users[userIndex] = newName;
-            
-            records.forEach(r => {
-                if (r.user === oldName) r.user = newName;
-            });
-            
-            if (marketPrices[oldName]) {
-                marketPrices[newName] = marketPrices[oldName];
-                delete marketPrices[oldName];
-            }
-            
-            if (assetHistory[oldName]) {
-                assetHistory[newName] = assetHistory[oldName];
-                delete assetHistory[oldName];
-            }
-            
-            saveAll();
-            updateUserDropdown();
-            cancelEditUser();
-            renderSettingsUsers();
-            render();
-            alert(`帳戶已更名為「${newName}」！`);
-        }
-
-        function deleteUser(name) {
-            if(users.length <= 1) return alert('系統必須保留至少一個帳戶。');
-            if(!confirm(`確定要刪除帳戶「${name}」？這將刪除所有相關資料！`)) return;
-            
-            users = users.filter(u => u !== name);
-            records = records.filter(r => r.user !== name);
-            delete marketPrices[name];
-            delete assetHistory[name];
-            
-            saveAll();
-            updateUserDropdown();
-            renderSettingsUsers();
-            render();
         }
 
         function updateUserDropdown() {
             var sel = document.getElementById('user-select');
-            var currentVal = sel.value;
             sel.innerHTML = users.map(u => `<option value="${u}">${u}</option>`).join('');
-            if(users.includes(currentVal)) sel.value = currentVal;
-            else if(users.length > 0) sel.value = users[0];
+        }
+
+        function renderSettingsUsers() {
+            var list = document.getElementById('user-management-list');
+            list.innerHTML = users.map(u => `<div class="item"><span>${u}</span><button class="btn-danger" style="width:auto;padding:5px 10px;" onclick="deleteUser('${u}')">刪除</button></div>`).join('');
+        }
+
+        function addUser() {
+            var name = document.getElementById('new-user-name').value.trim();
+            if(name && !users.includes(name)) { users.push(name); saveAll(); updateUserDropdown(); renderSettingsUsers(); }
+        }
+
+        function deleteUser(name) {
+            if(users.length > 1 && confirm('確定刪除？')) { users = users.filter(u => u !== name); saveAll(); updateUserDropdown(); renderSettingsUsers(); }
         }
 
         function exportData() {
             const blob = new Blob([JSON.stringify({recs:records, prices:marketPrices, hist:assetHistory, users:users})], {type:'application/json'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-            a.download = `投資系統備份_${new Date().toISOString().split('T')[0]}.json`; a.click();
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `投資備份_${new Date().toISOString().split('T')[0]}.json`; a.click();
         }
 
         function importData(e) {
             const reader = new FileReader();
             reader.onload = function(re) {
-                try {
-                    const data = JSON.parse(re.target.result);
-                    records = data.recs || []; 
-                    marketPrices = data.prices || {};
-                    assetHistory = data.hist || {}; 
-                    users = data.users || ['預設帳戶'];
-                    saveAll(); 
-                    updateUserDropdown(); 
-                    render(); 
-                    alert('資料匯入成功！');
-                } catch(err) {
-                    alert('檔案解析失敗。');
-                }
+                const data = JSON.parse(re.target.result);
+                records = data.recs; marketPrices = data.prices; assetHistory = data.hist; users = data.users;
+                saveAll(); location.reload();
             };
             reader.readAsText(e.target.files[0]);
         }
 
         function onUserChange() { render(); }
-        
         init();
     </script>
 </body>
