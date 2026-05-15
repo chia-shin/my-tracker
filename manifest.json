@@ -3,6 +3,6 @@
   "short_name": "多標的記帳",
   "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#f5f7fa",
+  "background_color": "#ffffff",
   "theme_color": "#4472C4"
 }
