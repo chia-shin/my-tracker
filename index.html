@@ -37,8 +37,6 @@
         .roi-down { color: #2ecc71; font-weight: bold; }
         .future-val { color: #8e44ad; font-weight: bold; font-size: 18px; }
         .del-user-btn { background-color: #e74c3c; margin-top: 8px; padding: 8px; font-size: 13px; width: 100%; }
-        
-        /* 🔄 自動更新按鈕專屬樣式 */
         .api-btn { background-color: #f39c12; color: white; margin-bottom: 15px; margin-top: 0; }
     </style>
 </head>
@@ -162,11 +160,10 @@
 
         document.getElementById('form-date').value = new Date().toISOString().split('T');
 
-        // 🔄 透過臺灣證券交易所 OpenAPI 抓取當天最新收盤數據
+        // 🛠️ 核心修改：利用 allorigins 代理伺服器繞過 CORS 安全封鎖
         async function fetchTaiwanStockPrices() {
             var currentUser = document.getElementById('filter-user').value;
             
-            // 1. 找出當前使用者手上有幾檔「正在持有」的標的代號
             var myStocks = [];
             var stockSharesMap = {};
             for (var i = 0; i < records.length; i++) {
@@ -181,20 +178,24 @@
                 if (stockSharesMap[code] > 0) myStocks.push(code);
             }
 
-            if (myStocks.length === 0) return alert('ℹ️ 您名下目前沒有持股，不需同步！');
+            if (myStocks.length === 0) return alert('ℹ️ 您名下目前沒有持股，不需同步！\n請先在下方「新增投資紀錄」一兩筆持股。');
 
             alert('⏳ 正在連線臺灣證券交易所 API 讀取最新市價，請稍候...');
 
             try {
-                // 讀取證交所當日個股收盤行情大資料集
-                var response = await fetch('https://twse.com.tw');
+                // 🛠️ 使用免費的全域代理，避免跨網域錯誤導致卡死
+                var targetUrl = 'https://twse.com.tw';
+                var proxyUrl = 'https://allorigins.win' + encodeURIComponent(targetUrl);
+
+                var response = await fetch(proxyUrl);
                 if (!response.ok) throw new Error('API連線失敗');
-                var stockDataList = await response.json();
+                
+                var wrapperData = await response.json();
+                var stockDataList = JSON.parse(wrapperData.contents); // 解析代理包裝後的內容
 
                 var updateCount = 0;
-                var todayStr = new Date().toISOString().split('T')[0];
+                var todayStr = new Date().toISOString().split('T');
 
-                // 2. 比對代號，抓取對應收盤價並寫入自動估值紀錄
                 for (var j = 0; j < stockDataList.length; j++) {
                     var s = stockDataList[j];
                     var stockCode = s.Code ? s.Code.trim() : "";
@@ -205,7 +206,6 @@
                             var currentShares = stockSharesMap[stockCode];
                             var currentMarketVal = closingPrice * currentShares;
 
-                            // 自動寫入一筆最新市值估算
                             records.push({
                                 user: currentUser,
                                 target: stockCode,
@@ -227,12 +227,12 @@
                     render();
                     alert('✅ 成功同步 ' + updateCount + ' 檔台股標的之最新市值！');
                 } else {
-                    alert('ℹ️ 證交所尚未釋出當日收盤數據（通常於13:30後更新），或請確認標的代號是否輸入正確（如：2330）。');
+                    alert('ℹ️ 證交所尚未釋出當日收盤數據，或請確認您的標的代碼是否填寫正確（如：2330）。');
                 }
 
             } catch (error) {
                 console.error(error);
-                alert('❌ 抓取失敗：可能正值證交所伺服器維護時間，或手機未連線網路。');
+                alert('❌ 抓取失敗：可能正值證交所伺服器維護時間，請稍後再試。');
             }
         }
 
@@ -248,9 +248,7 @@
             priceInput.style.color = (type === 'value_update') ? '#333' : '#555';
 
             if (type === 'value_update') {
-                document.getElementById('lbl-p1').innerText = '最新單現價';
-                document.getElementById('lbl-p2').innerText = '現有總股數';
-                document.getElementById('lbl-amt').innerText = '或改填總市值';
+                document.getElementById('lbl-p1').innerText = '最新單現價'; document.getElementById('lbl-p2').innerText = '現有總股數'; document.getElementById('lbl-amt').innerText = '或改填總市值';
                 priceInput.placeholder = "單價"; sharesInput.placeholder = "選填"; amtInput.placeholder = "選填";
             } else if (type === 'withdraw') {
                 document.getElementById('lbl-p1').innerText = '算出的單價'; document.getElementById('lbl-p2').innerText = '賣出股數'; document.getElementById('lbl-amt').innerText = '實際總拿回';
