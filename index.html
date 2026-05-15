@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>台股自動估值投資記帳系統</title>
+    <title>投資記帳與自動市值系統</title>
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #ffffff; color: #333333; padding: 15px; margin: 0; }
         h1 { font-size: 20px; text-align: center; color: #4472C4; margin-bottom: 15px; }
@@ -15,19 +15,12 @@
         label { display: block; font-size: 13px; color: #666666; margin: 8px 0 3px 0; font-weight: bold; }
         
         input, select { 
-            width: 100%; 
-            padding: 10px; 
-            border: 1px solid #cccccc; 
-            border-radius: 6px; 
-            font-size: 16px; 
-            box-sizing: border-box; 
+            width: 100%; padding: 10px; border: 1px solid #cccccc; border-radius: 6px; font-size: 16px; box-sizing: border-box; 
         }
-
         input[type="date"] {
             display: block !important; width: 100% !important; max-width: 100% !important;
             min-width: 100% !important; padding: 10px !important; min-height: 44px; box-sizing: border-box !important;
         }
-
         button { width: 100%; padding: 12px; background-color: #4472C4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin-top: 12px; box-sizing: border-box; }
         .user-box { border: 2px solid #27ae60; background-color: #f4fbf7; }
         .item { padding: 10px; border-bottom: 1px solid #eeeeee; font-size: 14px; }
@@ -44,7 +37,6 @@
 
     <h1>📈 投資記帳與自動市值系統</h1>
 
-    <!-- 用戶管理區塊 -->
     <div class="box user-box">
         <b style="font-size:15px; color:#27ae60;">👤 使用者切換與管理</b>
         <div class="grid-2" style="margin-top: 5px;">
@@ -60,15 +52,14 @@
         <button onclick="deleteUser()" class="del-user-btn">❌ 刪除當前所選使用者</button>
     </div>
 
-    <!-- 🔄 證交所 API 自動更新功能 -->
-    <button onclick="fetchTaiwanStockPrices()" class="api-btn">🔄 自動抓取證交所最新收盤價更新市值</button>
+    <!-- 🔄 Yahoo Finance 即時更新按鈕 -->
+    <button onclick="fetchYahooFinancePrices()" class="api-btn">🔄 自動抓取即時市價更新市值</button>
 
     <div>
         <label>🔍 切換檢視標的：</label>
         <select id="filter-target" onchange="render()"></select>
     </div>
 
-    <!-- 數據看板 -->
     <div class="box">
         <div class="row">
             <div>
@@ -88,22 +79,21 @@
         </div>
     </div>
 
-    <!-- 未來複利預測模型 -->
     <div class="box" style="border: 1px solid #8e44ad; background-color: #faf5ff;">
         <b style="font-size:15px; color:#8e44ad;">🔮 未來資產複利增長預測 (包含每年再投入)</b>
         <div class="grid-2">
             <div>
                 <label>預估年化報酬率 (%)</label>
-                <input type="number" id="future-rate" value="12" placeholder="例如: 12" inputmode="decimal" oninput="render()">
+                <input type="number" id="future-rate" value="12" placeholder="example: 12" inputmode="decimal" oninput="render()">
             </div>
             <div>
                 <label>預估持有年數 (年)</label>
-                <input type="number" id="future-years" value="5" placeholder="例如: 5" inputmode="numeric" oninput="render()">
+                <input type="number" id="future-years" value="5" placeholder="example: 5" inputmode="numeric" oninput="render()">
             </div>
         </div>
         <div>
             <label>未來每年固定「再投入金額」</label>
-            <input type="number" id="future-annual-inject" value="100000" placeholder="例如: 100000" inputmode="numeric" oninput="render()">
+            <input type="number" id="future-annual-inject" value="100000" placeholder="example: 100000" inputmode="numeric" oninput="render()">
         </div>
         <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid #e8dbf3;">
             <label style="margin-top:0;">🎯 複利滾存 + 持續投入後的未來總值：</label>
@@ -111,12 +101,11 @@
         </div>
     </div>
 
-    <!-- 新增紀錄 -->
     <div class="box">
         <b style="font-size:16px;">✨ 新增投資紀錄</b>
         
-        <label>投資標的代號 (請填純數字，例如：2330、0050、00675L)</label>
-        <input type="text" id="form-target" placeholder="例如：2330、0050">
+        <label>投資標的代號 (直接填代號即可，例如：2330、0050、00675L)</label>
+        <input type="text" id="form-target" placeholder="例如：2330">
 
         <label>日期</label>
         <input type="date" id="form-date">
@@ -160,15 +149,25 @@
 
         document.getElementById('form-date').value = new Date().toISOString().split('T');
 
-        // 🛠️ 核心修改：利用 allorigins 代理伺服器繞過 CORS 安全封鎖
-        async function fetchTaiwanStockPrices() {
+        // 🛠️ 後台自動修補補全 .TW 函數
+        function fixStockSymbol(symbol) {
+            if (!symbol) return "";
+            var s = symbol.trim().toUpperCase();
+            // 如果結尾沒有 .TW 且不含美股常用的點號，就認定是台股，在後台自動補上
+            if (s.indexOf('.TW') === -1 && s.indexOf('.') === -1) {
+                return s + '.TW';
+            }
+            return s;
+        }
+
+        async function fetchYahooFinancePrices() {
             var currentUser = document.getElementById('filter-user').value;
-            
             var myStocks = [];
             var stockSharesMap = {};
+
             for (var i = 0; i < records.length; i++) {
                 if (records[i].user === currentUser) {
-                    var t = records[i].target;
+                    var t = fixStockSymbol(records[i].target); // 🔄 背景核對時自動轉成格式化格式
                     if (records[i].transaction_type === 'deposit' || records[i].transaction_type === 'withdraw') {
                         stockSharesMap[t] = (stockSharesMap[t] || 0) + records[i].shares;
                     }
@@ -178,61 +177,55 @@
                 if (stockSharesMap[code] > 0) myStocks.push(code);
             }
 
-            if (myStocks.length === 0) return alert('ℹ️ 您名下目前沒有持股，不需同步！\n請先在下方「新增投資紀錄」一兩筆持股。');
+            if (myStocks.length === 0) {
+                return alert('ℹ Honor！您目前沒有持股！\n請先在下方新增買入一筆持股。');
+            }
 
-            alert('⏳ 正在連線臺灣證券交易所 API 讀取最新市價，請稍候...');
+            alert('⏳ 正在同步 Yahoo Finance 即時市場價格...');
 
-            try {
-                // 🛠️ 使用免費的全域代理，避免跨網域錯誤導致卡死
-                var targetUrl = 'https://twse.com.tw';
-                var proxyUrl = 'https://allorigins.win' + encodeURIComponent(targetUrl);
+            var updateCount = 0;
+            var todayStr = new Date().toISOString().split('T');
 
-                var response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error('API連線失敗');
-                
-                var wrapperData = await response.json();
-                var stockDataList = JSON.parse(wrapperData.contents); // 解析代理包裝後的內容
-
-                var updateCount = 0;
-                var todayStr = new Date().toISOString().split('T');
-
-                for (var j = 0; j < stockDataList.length; j++) {
-                    var s = stockDataList[j];
-                    var stockCode = s.Code ? s.Code.trim() : "";
+            for (var k = 0; k < myStocks.length; k++) {
+                var symbol = myStocks[k];
+                try {
+                    var url = `https://yahoo.com{symbol}?interval=1d&range=1d`;
+                    var proxyUrl = 'https://allorigins.win' + encodeURIComponent(url);
                     
-                    if (myStocks.indexOf(stockCode) !== -1) {
-                        var closingPrice = parseFloat(s.ClosingPrice);
-                        if (!isNaN(closingPrice) && closingPrice > 0) {
-                            var currentShares = stockSharesMap[stockCode];
-                            var currentMarketVal = closingPrice * currentShares;
+                    var response = await fetch(proxyUrl);
+                    if (!response.ok) continue;
+                    var jsonRes = await response.json();
+                    var data = JSON.parse(jsonRes.contents);
+                    
+                    var meta = data.chart.result.meta;
+                    var closingPrice = meta.regularMarketPrice;
 
-                            records.push({
-                                user: currentUser,
-                                target: stockCode,
-                                date: todayStr,
-                                amount: 0,
-                                transaction_type: 'value_update',
-                                description: '🔄 系統自動同步證交所市價',
-                                current_value: currentMarketVal,
-                                price: closingPrice,
-                                shares: currentShares
-                            });
-                            updateCount++;
-                        }
+                    if (closingPrice && closingPrice > 0) {
+                        var currentShares = stockSharesMap[symbol];
+                        var currentMarketVal = closingPrice * currentShares;
+
+                        // 寫入自動估值時，仍保持原標的代號格式
+                        records.push({
+                            user: currentUser, 
+                            target: symbol.replace('.TW', ''), // 🔄 存入時把後台補丁去掉，保持介面乾淨純數字
+                            date: todayStr, amount: 0,
+                            transaction_type: 'value_update',
+                            description: '🔄 系統自動同步 Yahoo 即時價',
+                            current_value: currentMarketVal, price: closingPrice, shares: currentShares
+                        });
+                        updateCount++;
                     }
+                } catch (e) {
+                    console.error('抓取 ' + symbol + ' 失敗', e);
                 }
+            }
 
-                if (updateCount > 0) {
-                    localStorage.setItem('multi_user_records_v4', JSON.stringify(records));
-                    render();
-                    alert('✅ 成功同步 ' + updateCount + ' 檔台股標的之最新市值！');
-                } else {
-                    alert('ℹ️ 證交所尚未釋出當日收盤數據，或請確認您的標的代碼是否填寫正確（如：2330）。');
-                }
-
-            } catch (error) {
-                console.error(error);
-                alert('❌ 抓取失敗：可能正值證交所伺服器維護時間，請稍後再試。');
+            if (updateCount > 0) {
+                localStorage.setItem('multi_user_records_v4', JSON.stringify(records));
+                render();
+                alert('✅ 成功自動同步 ' + updateCount + ' 檔標的最新市值！');
+            } else {
+                alert('❌ 同步失敗。請確認代號是否為真實上市櫃代號。');
             }
         }
 
@@ -241,7 +234,6 @@
             var priceInput = document.getElementById('form-price');
             var sharesInput = document.getElementById('form-shares');
             var amtInput = document.getElementById('form-amount');
-            
             priceInput.value = ''; sharesInput.value = ''; amtInput.value = '';
             priceInput.readOnly = (type !== 'value_update');
             priceInput.style.backgroundColor = (type === 'value_update') ? '#fff' : '#eee';
@@ -264,7 +256,6 @@
             var shares = parseFloat(document.getElementById('form-shares').value) || 0;
             var amount = parseFloat(document.getElementById('form-amount').value) || 0;
             var priceInput = document.getElementById('form-price');
-            
             if (type !== 'value_update') {
                 if (shares > 0 && amount > 0) priceInput.value = (amount / shares).toFixed(4);
                 else priceInput.value = '';
@@ -275,7 +266,7 @@
         }
 
         function addUser() {
-            var name = prompt('請輸入新使用者名稱（例如：爸爸、媽媽）：');
+            var name = prompt('請輸入新使用者名稱：');
             if (!name) return;
             name = name.trim();
             if (users.indexOf(name) !== -1) return alert('此使用者名稱已存在');
@@ -290,18 +281,15 @@
             var currentUser = document.getElementById('filter-user').value;
             if (users.length <= 1) return alert('❌ 系統必須保留至少一位使用者。');
             if (!confirm('⚠️ 確定要刪除使用者「' + currentUser + '」嗎？') || !confirm('🚨 警告：這會刪除其名下所有資料且無法復原！確定要繼續嗎？')) return;
-            
             var updatedRecords = [];
             for (var i = 0; i < records.length; i++) {
                 if (records[i].user !== currentUser) updatedRecords.push(records[i]);
             }
             records = updatedRecords;
             localStorage.setItem('multi_user_records_v4', JSON.stringify(records));
-            
             var userIndex = users.indexOf(currentUser);
             if (userIndex !== -1) users.splice(userIndex, 1);
             localStorage.setItem('multi_users_list_v4', JSON.stringify(users));
-            
             updateUserDropdown();
             document.getElementById('filter-user').value = users;
             onUserChange();
@@ -338,7 +326,7 @@
 
         function addRecord() {
             var currentUser = document.getElementById('filter-user').value;
-            var target = document.getElementById('form-target').value.trim();
+            var target = document.getElementById('form-target').value.trim().toUpperCase(); // 🔄 強制轉大寫防呆
             var date = document.getElementById('form-date').value;
             var type = document.getElementById('form-type').value;
             var shares = parseFloat(document.getElementById('form-shares').value) || 0;
@@ -348,7 +336,6 @@
 
             if (!target) return alert('請輸入投資標的代號');
             if (!date) return alert('請選擇日期');
-            
             if (type !== 'value_update') {
                 if (shares <= 0 || amount <= 0) return alert('請輸入有效的股數與總金額');
                 price = amount / shares;
