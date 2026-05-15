@@ -8,13 +8,29 @@
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #ffffff; color: #333333; padding: 15px; margin: 0; }
         h1 { font-size: 20px; text-align: center; color: #4472C4; margin-bottom: 15px; }
-        .box { background-color: #f8f9fa; border: 1px solid #dddddd; padding: 12px; border-radius: 8px; margin-bottom: 15px; }
+        .box { background-color: #f8f9fa; border: 1px solid #dddddd; padding: 12px; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         label { display: block; font-size: 13px; color: #666666; margin: 8px 0 3px 0; font-weight: bold; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #cccccc; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background-color: #4472C4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin-top: 12px; }
+        
+        /* 🛠️ 重點修復：確保所有輸入框與日期選擇器皆不超出邊界 */
+        input, select { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #cccccc; 
+            border-radius: 6px; 
+            font-size: 16px; 
+            box-sizing: border-box; 
+            max-width: 100%;
+        }
+        /* 🛠️ 特別修正 iOS Safari 日期欄位寬度與高度 */
+        input[type="date"] {
+            padding: 8px 10px;
+            min-height: 43px;
+        }
+
+        button { width: 100%; padding: 12px; background-color: #4472C4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin-top: 12px; box-sizing: border-box; }
         .user-box { border: 2px solid #27ae60; background-color: #f4fbf7; }
         .item { padding: 10px; border-bottom: 1px solid #eeeeee; font-size: 14px; }
         .tag { background-color: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
@@ -22,7 +38,7 @@
         .roi-up { color: #e74c3c; font-weight: bold; }
         .roi-down { color: #2ecc71; font-weight: bold; }
         .future-val { color: #8e44ad; font-weight: bold; font-size: 18px; }
-        .del-user-btn { background-color: #e74c3c; margin-top: 8px; padding: 8px; font-size: 13px; }
+        .del-user-btn { background-color: #e74c3c; margin-top: 8px; padding: 8px; font-size: 13px; width: 100%; }
     </style>
 </head>
 <body>
@@ -140,7 +156,7 @@
         var records = JSON.parse(localStorage.getItem('multi_user_records_v4')) || [];
         var users = JSON.parse(localStorage.getItem('multi_users_list_v4')) || ['預設使用者'];
 
-        document.getElementById('form-date').value = new Date().toISOString().split('T');
+        document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
 
         function toggleFields() {
             var type = document.getElementById('form-type').value;
@@ -189,38 +205,23 @@
             onUserChange();
         }
 
-        // 🟥 新增刪除使用者功能
         function deleteUser() {
             var currentUser = document.getElementById('filter-user').value;
+            if (users.length <= 1) return alert('❌ 系統必須保留至少一位使用者，無法刪除最後一個帳戶。');
+            if (!confirm('⚠️ 確定要刪除使用者「' + currentUser + '」嗎？')) return;
+            if (!confirm('🚨 警告：刪除該用戶將會連帶「永久刪除」其名下的所有記帳與市值明細，且無法復原！確定要繼續嗎？')) return;
             
-            if (users.length <= 1) {
-                return alert('❌ 系統必須保留至少一位使用者，無法刪除最後一個帳戶。');
-            }
-            
-            var confirm1 = confirm('⚠️ 確定要刪除使用者「' + currentUser + '」嗎？');
-            if (!confirm1) return;
-            
-            var confirm2 = confirm('🚨 警告：刪除該用戶將會連帶「永久刪除」其名下的所有記帳與市值明細，且無法復原！確定要繼續嗎？');
-            if (!confirm2) return;
-            
-            // 1. 清除該使用者在 records 裡的所有資料
             var updatedRecords = [];
             for (var i = 0; i < records.length; i++) {
-                if (records[i].user !== currentUser) {
-                    updatedRecords.push(records[i]);
-                }
+                if (records[i].user !== currentUser) updatedRecords.push(records[i]);
             }
             records = updatedRecords;
             localStorage.setItem('multi_user_records_v4', JSON.stringify(records));
             
-            // 2. 從使用者名單中移除
             var userIndex = users.indexOf(currentUser);
-            if (userIndex !== -1) {
-                users.splice(userIndex, 1);
-            }
+            if (userIndex !== -1) users.splice(userIndex, 1);
             localStorage.setItem('multi_users_list_v4', JSON.stringify(users));
             
-            // 3. 刷新介面，預設切換到名單中的第一個使用者
             updateUserDropdown();
             document.getElementById('filter-user').value = users[0];
             onUserChange();
