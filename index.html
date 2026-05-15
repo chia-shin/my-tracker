@@ -22,6 +22,7 @@
         .roi-up { color: #e74c3c; font-weight: bold; }
         .roi-down { color: #2ecc71; font-weight: bold; }
         .future-val { color: #8e44ad; font-weight: bold; font-size: 18px; }
+        .del-user-btn { background-color: #e74c3c; margin-top: 8px; padding: 8px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -37,10 +38,11 @@
                 <select id="filter-user" style="border: 2px solid #27ae60; font-weight: bold;" onchange="onUserChange()"></select>
             </div>
             <div>
-                <label style="margin-top:0;">新增新使用者：</label>
+                <label style="margin-top:0;">管理操作：</label>
                 <button onclick="addUser()" style="background-color: #27ae60; margin-top: 0; padding: 10px;">➕ 建立帳戶</button>
             </div>
         </div>
+        <button onclick="deleteUser()" class="del-user-btn">❌ 刪除當前所選使用者</button>
     </div>
 
     <div>
@@ -135,7 +137,6 @@
     </div>
 
     <script>
-        // 資料結構調整，全面綁定 user 欄位
         var records = JSON.parse(localStorage.getItem('multi_user_records_v4')) || [];
         var users = JSON.parse(localStorage.getItem('multi_users_list_v4')) || ['預設使用者'];
 
@@ -175,7 +176,6 @@
             }
         }
 
-        // 新增使用者
         function addUser() {
             var name = prompt('請輸入新使用者名稱（例如：爸爸、媽媽、個人、公司）：');
             if (!name) return;
@@ -189,6 +189,44 @@
             onUserChange();
         }
 
+        // 🟥 新增刪除使用者功能
+        function deleteUser() {
+            var currentUser = document.getElementById('filter-user').value;
+            
+            if (users.length <= 1) {
+                return alert('❌ 系統必須保留至少一位使用者，無法刪除最後一個帳戶。');
+            }
+            
+            var confirm1 = confirm('⚠️ 確定要刪除使用者「' + currentUser + '」嗎？');
+            if (!confirm1) return;
+            
+            var confirm2 = confirm('🚨 警告：刪除該用戶將會連帶「永久刪除」其名下的所有記帳與市值明細，且無法復原！確定要繼續嗎？');
+            if (!confirm2) return;
+            
+            // 1. 清除該使用者在 records 裡的所有資料
+            var updatedRecords = [];
+            for (var i = 0; i < records.length; i++) {
+                if (records[i].user !== currentUser) {
+                    updatedRecords.push(records[i]);
+                }
+            }
+            records = updatedRecords;
+            localStorage.setItem('multi_user_records_v4', JSON.stringify(records));
+            
+            // 2. 從使用者名單中移除
+            var userIndex = users.indexOf(currentUser);
+            if (userIndex !== -1) {
+                users.splice(userIndex, 1);
+            }
+            localStorage.setItem('multi_users_list_v4', JSON.stringify(users));
+            
+            // 3. 刷新介面，預設切換到名單中的第一個使用者
+            updateUserDropdown();
+            document.getElementById('filter-user').value = users[0];
+            onUserChange();
+            alert('✅ 已成功刪除該使用者及其所有明細資料。');
+        }
+
         function updateUserDropdown() {
             var userSelect = document.getElementById('filter-user');
             var currentSel = userSelect.value || users[0];
@@ -196,7 +234,11 @@
             for (var i = 0; i < users.length; i++) {
                 userSelect.innerHTML += '<option value="' + users[i] + '">' + users[i] + '</option>';
             }
-            if (users.indexOf(currentSel) !== -1) userSelect.value = currentSel;
+            if (users.indexOf(currentSel) !== -1) {
+                userSelect.value = currentSel;
+            } else {
+                userSelect.value = users[0];
+            }
         }
 
         function onUserChange() {
@@ -244,7 +286,6 @@
                 amount = 0; 
             }
 
-            // 新增時多注入 user 欄位
             records.push({ 
                 user: currentUser, target: target, date: date, amount: amount, 
                 transaction_type: type, description: desc, 
@@ -280,7 +321,6 @@
             var totalLatestValue = 0;
             var targetLatestValueMap = {};
 
-            // 過濾出當前使用者的紀錄
             var userRecords = [];
             for (var a = 0; a < records.length; a++) {
                 if (records[a].user === currentUser) { userRecords.push(records[a]); }
@@ -337,7 +377,6 @@
             var displayedRecords = [];
             for (var k = 0; k < userRecords.length; k++) {
                 if (filterTarget === 'ALL' || userRecords[k].target === filterTarget) {
-                    // 需要找回在總資料庫 records 的真正原索引才能安全刪除
                     var realIdx = records.indexOf(userRecords[k]);
                     var itemWithIdx = Object.assign({}, userRecords[k], { originalIdx: realIdx });
                     displayedRecords.push(itemWithIdx);
@@ -384,7 +423,6 @@
             }
         }
 
-        // 初始化順序
         updateUserDropdown();
         updateTargetDropdowns();
         render();
