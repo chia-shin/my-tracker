@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>投資走勢分析系統 - 專業優化版</title>
+    <title>投資走勢分析系統 - 終極完整版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <style>
@@ -33,6 +33,7 @@
 </head>
 <body>
 
+    <!-- 頁面 1：首頁 -->
     <div id="page-home" class="page active">
         <h2 style="text-align:center;">🏠 我的投資首頁</h2>
         <div class="box" style="border-left: 5px solid var(--primary);">
@@ -61,6 +62,7 @@
         </div>
     </div>
 
+    <!-- 頁面 2：歷史歷史管理 -->
     <div id="page-history" class="page">
         <h2 style="text-align:center;">📜 歷史管理</h2>
         <div class="box" style="background:#fffdf9; border-left:5px solid var(--warning);">
@@ -76,14 +78,17 @@
         </div>
     </div>
 
+    <!-- 頁面 3：系統設定 -->
     <div id="page-settings" class="page">
         <h2 style="text-align:center;">⚙️ 系統設定</h2>
         <div class="box">
             <span class="box-title">👤 帳戶管理</span>
             <div class="grid-2" style="margin-bottom: 12px;">
-                <input type="text" id="new-user-name" placeholder="輸入新帳戶名稱" style="flex: 2;">
-                <button class="btn-main" onclick="addUser()" style="flex: 1; height: 45px;">新增帳戶</button>
+                <input type="text" id="new-user-name" placeholder="輸入帳戶名稱" style="flex: 2;">
+                <button class="btn-main" id="btn-user-action" onclick="addUser()" style="flex: 1; height: 45px;">新增帳戶</button>
             </div>
+            <input type="hidden" id="edit-user-old-name">
+            <button class="btn-sub" id="btn-cancel-edit" style="display:none; margin-bottom:10px;" onclick="cancelEditUser()">❌ 取消修改名稱</button>
             <div id="user-management-list"></div>
         </div>
         <div class="box">
@@ -93,10 +98,11 @@
             <input type="file" id="importFile" style="display:none" onchange="importData(event)">
         </div>
         <div class="box" style="border-top: 1px solid #eee;">
-            <button onclick="if(confirm('確定清除所有快取？這將刪除所有本機記帳資料！')) { localStorage.clear(); location.reload(); }" style="color:red; background:none;">⚠️ 清除瀏覽器快取</button>
+            <button onclick="if(confirm('確定清除所有快取？這將刪除所有本機記帳資料！')) { localStorage.clear(); location.reload(); }" style="color:red; background:none; border:none; cursor:pointer;">⚠️ 清除瀏覽器快取</button>
         </div>
     </div>
 
+    <!-- 底部導覽列 -->
     <div class="nav-bar">
         <div class="nav-item active" onclick="switchPage('home', this)">首頁</div>
         <div class="nav-item" onclick="switchPage('history', this)">歷史</div>
@@ -104,12 +110,12 @@
     </div>
 
     <script>
+        // 資料讀取與儲存核心邏輯
         function getStore(key) { return JSON.parse(localStorage.getItem('v11_'+key) || 'null'); }
         
-        // 初始化資料架構
         var records = getStore('recs') || [];
-        var marketPrices = getStore('prices') || {}; // 僅存放各帳戶「最新現價」
-        var assetHistory = getStore('hist') || {};   // 存放歷史時間軸點位
+        var marketPrices = getStore('prices') || {}; 
+        var assetHistory = getStore('hist') || {};   
         var users = getStore('users') || ['預設帳戶'];
         var chartInstance = null;
 
@@ -135,10 +141,10 @@
             
             if(pageId === 'home') render();
             if(pageId === 'history') { renderHistoryList(); renderSyncPrices(); }
-            if(pageId === 'settings') { renderSettingsUsers(); }
+            if(pageId === 'settings') { cancelEditUser(); renderSettingsUsers(); }
         }
 
-        // 首頁渲染：計算最新即時市值與成本
+        // 首頁資料計算與邏輯渲染
         function render() {
             var user = document.getElementById('user-select').value;
             if(!user) return;
@@ -177,16 +183,14 @@
             });
         }
 
-        // 歷史點位補錄區塊渲染：自動抓取當前已紀錄的现值或留空
         function renderSyncPrices() {
             var user = document.getElementById('user-select').value;
             var date = document.getElementById('sync-history-date').value;
             var container = document.getElementById('sync-price-list');
             
-            // 找出在該歷史日期（含）之前，曾經持有過的所有標的
             var targets = [...new Set(records.filter(r => r.user === user && r.date <= date).map(r => r.target))];
             if(targets.length === 0) {
-                container.innerHTML = '<p style="color:gray;font-size:13px;">該日期前無持有任何標的，無需補錄。</p>';
+                container.innerHTML = '<p style="color:gray;font-size:13px;text-align:center;padding:10px 0;">該日期前無持有任何標的，無需補錄。</p>';
                 return;
             }
             
@@ -209,23 +213,20 @@
             
             records.push({ user, target, date, shares, amount });
             
-            // 聰明的體驗：如果該標的從未填過現價，自動將本次購買的波段單價（總額/股數）暫時寫入現價
             if(!marketPrices[user]) marketPrices[user] = {};
             if(!marketPrices[user][target]) {
-                marketPrices[user][target] = amount / shares;
+                marketPrices[user][target] = amount / shares; 
             }
 
             saveAll(); 
             render(); 
             alert('交易紀錄已成功儲存！');
             
-            // 清空輸入欄位
             document.getElementById('f-target').value = '';
             document.getElementById('f-shares').value = '';
             document.getElementById('f-amount').value = '';
         }
 
-        // 修正後的快照存檔：區分「最新現價」與「歷史回溯點位」
         function saveHistoryPoint() {
             var user = document.getElementById('user-select').value;
             var date = document.getElementById('sync-history-date').value;
@@ -236,19 +237,16 @@
             var dayVal = 0; var dayCost = 0;
             var port = {};
             
-            // 1. 計算截止至該日期的累計股數與總投入成本
             records.filter(r => r.user === user && r.date <= date).forEach(r => {
                 port[r.target] = (port[r.target] || 0) + r.shares;
                 dayCost += r.amount;
             });
             
-            // 2. 依據畫面上輸入的「歷史價格」計算當天的歷史總市值
             for(let input of inputs) {
                 var p = parseFloat(input.value) || 0;
                 var code = input.dataset.code;
                 if(port[code]) dayVal += port[code] * p;
                 
-                // 【核心修正】：若輸入的日期就是「今天」，才同步更新全域最新現價；否則不污染首頁
                 var todayStr = new Date().toISOString().split('T')[0];
                 if(date === todayStr) {
                     if(!marketPrices[user]) marketPrices[user] = {};
@@ -256,7 +254,6 @@
                 }
             }
             
-            // 3. 寫入歷史資產趨勢快照
             if(!assetHistory[user]) assetHistory[user] = [];
             var exist = assetHistory[user].findIndex(h => h.date === date);
             var snap = { date, value: Math.round(dayVal), cost: Math.round(dayCost) };
@@ -293,7 +290,21 @@
             });
         }
 
-        // 新增帳戶功能
+        // 帳戶管理：渲染設定頁列表
+        function renderSettingsUsers() {
+            var list = document.getElementById('user-management-list');
+            list.innerHTML = users.map(u => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #eee;">
+                    <span style="font-weight:600;">${u}</span>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-sub" style="width:60px; padding:6px; font-size:12px; margin:0;" onclick="startEditUser('${u}')">改名</button>
+                        <button class="btn-danger" style="width:60px; padding:6px; font-size:12px; margin:0;" onclick="deleteUser('${u}')">刪除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 帳戶管理：新增功能
         function addUser() {
             var nameInput = document.getElementById('new-user-name');
             var name = nameInput.value.trim();
@@ -307,7 +318,60 @@
             alert(`已成功新增帳戶: ${name}`);
         }
 
-        // 刪除帳戶功能
+        // 帳戶管理：進入改名狀態
+        function startEditUser(oldName) {
+            document.getElementById('new-user-name').value = oldName;
+            document.getElementById('edit-user-old-name').value = oldName;
+            document.getElementById('btn-user-action').innerText = '確認改名';
+            document.getElementById('btn-user-action').setAttribute('onclick', 'renameUser()');
+            document.getElementById('btn-cancel-edit').style.display = 'block';
+            document.getElementById('new-user-name').focus();
+        }
+
+        // 帳戶管理：取消改名狀態
+        function cancelEditUser() {
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('edit-user-old-name').value = '';
+            document.getElementById('btn-user-action').innerText = '新增帳戶';
+            document.getElementById('btn-user-action').setAttribute('onclick', 'addUser()');
+            document.getElementById('btn-cancel-edit').style.display = 'none';
+        }
+
+        // 帳戶管理：安全改名（連動更新所有記帳歷史）
+        function renameUser() {
+            var oldName = document.getElementById('edit-user-old-name').value;
+            var newName = document.getElementById('new-user-name').value.trim();
+            
+            if (!newName) return alert('帳戶名稱不能為空');
+            if (oldName === newName) { cancelEditUser(); return; }
+            if (users.includes(newName)) return alert('此帳戶名稱已存在');
+            
+            var userIndex = users.indexOf(oldName);
+            if (userIndex > -1) users[userIndex] = newName;
+            
+            records.forEach(r => {
+                if (r.user === oldName) r.user = newName;
+            });
+            
+            if (marketPrices[oldName]) {
+                marketPrices[newName] = marketPrices[oldName];
+                delete marketPrices[oldName];
+            }
+            
+            if (assetHistory[oldName]) {
+                assetHistory[newName] = assetHistory[oldName];
+                delete assetHistory[oldName];
+            }
+            
+            saveAll();
+            updateUserDropdown();
+            cancelEditUser();
+            renderSettingsUsers();
+            render();
+            alert(`帳戶已成功從「${oldName}」更名為「${newName}」！所有資料皆已安全轉移。`);
+        }
+
+        // 帳戶管理：刪除功能
         function deleteUser(name) {
             if(users.length <= 1) return alert('系統必須保留至少一個帳戶。');
             if(!confirm(`確定要刪除帳戶「${name}」？這將一併刪除該帳戶的所有交易明細與歷史快照，且無法復原！`)) return;
@@ -329,16 +393,6 @@
             sel.innerHTML = users.map(u => `<option value="${u}">${u}</option>`).join('');
             if(users.includes(currentVal)) sel.value = currentVal;
             else if(users.length > 0) sel.value = users[0];
-        }
-
-        function renderSettingsUsers() {
-            var list = document.getElementById('user-management-list');
-            list.innerHTML = users.map(u => `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #eee;">
-                    <span>${u}</span>
-                    <button class="btn-danger" style="width:70px; padding:6px; font-size:12px;" onclick="deleteUser('${u}')">刪除</button>
-                </div>
-            `).join('');
         }
 
         function exportData() {
@@ -369,7 +423,7 @@
 
         function onUserChange() { render(); }
         
-        // 啟動
+        // 系統初始化啟動
         init();
     </script>
 </body>
