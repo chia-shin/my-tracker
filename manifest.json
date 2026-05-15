@@ -1,0 +1,8 @@
+{
+  "name": "多標的投資記帳管理系統",
+  "short_name": "多標的記帳",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#4472C4"
+}
