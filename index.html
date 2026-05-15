@@ -2,19 +2,18 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>多用戶投資記帳與複利預測系統</title>
+    <title>投資記帳與複利預測系統</title>
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #ffffff; color: #333333; padding: 15px; margin: 0; }
         h1 { font-size: 20px; text-align: center; color: #4472C4; margin-bottom: 15px; }
-        .box { background-color: #f8f9fa; border: 1px solid #dddddd; padding: 12px; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; }
+        .box { background-color: #f8f9fa; border: 1px solid #dddddd; padding: 12px; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; width: 100%; }
         .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         label { display: block; font-size: 13px; color: #666666; margin: 8px 0 3px 0; font-weight: bold; }
         
-        /* 🛠️ 重點修復：確保所有輸入框與日期選擇器皆不超出邊界 */
         input, select { 
             width: 100%; 
             padding: 10px; 
@@ -22,12 +21,17 @@
             border-radius: 6px; 
             font-size: 16px; 
             box-sizing: border-box; 
-            max-width: 100%;
         }
-        /* 🛠️ 特別修正 iOS Safari 日期欄位寬度與高度 */
+
         input[type="date"] {
-            padding: 8px 10px;
-            min-height: 43px;
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 100% !important;
+            padding: 10px !important;
+            min-height: 44px;
+            box-sizing: border-box !important;
+            -webkit-appearance: none;
         }
 
         button { width: 100%; padding: 12px; background-color: #4472C4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin-top: 12px; box-sizing: border-box; }
@@ -121,23 +125,24 @@
         
         <label>交易類型</label>
         <select id="form-type" onchange="toggleFields()">
-            <option value="deposit">買入 (投入金額)</option>
-            <option value="withdraw">賣出 (贖回金額)</option>
-            <option value="value_update">更新最新現價 (現值)</option>
+            <option value="deposit">買入 (投入總額)</option>
+            <option value="withdraw">賣出 (贖回總額)</option>
+            <option value="value_update">更新最新現價 (或總值)</option>
         </select>
 
+        <!-- 🛠️ 調整連動：改為主要填寫 股數 與 總金額 -->
         <div id="trade-group" class="grid-3">
             <div>
-                <label id="lbl-p1">買入單價</label>
-                <input type="number" id="form-price" placeholder="價格" inputmode="decimal" oninput="calcTotal()">
-            </div>
-            <div>
                 <label id="lbl-p2">買入股數</label>
-                <input type="number" id="form-shares" placeholder="股數" inputmode="decimal" oninput="calcTotal()">
+                <input type="number" id="form-shares" placeholder="股數" inputmode="decimal" oninput="calcPrice()">
             </div>
             <div>
-                <label>計算總金額</label>
-                <input type="number" id="form-amount" placeholder="總額" inputmode="decimal">
+                <label id="lbl-amt">實際總金額</label>
+                <input type="number" id="form-amount" placeholder="總金額" inputmode="decimal" oninput="calcPrice()">
+            </div>
+            <div>
+                <label id="lbl-p1">計算出單價</label>
+                <input type="number" id="form-price" placeholder="自動計算" inputmode="decimal" readonly style="background-color: #eee; color: #555;">
             </div>
         </div>
 
@@ -165,30 +170,53 @@
             var amtInput = document.getElementById('form-amount');
             
             priceInput.value = ''; sharesInput.value = ''; amtInput.value = '';
+            priceInput.readOnly = (type !== 'value_update');
+            priceInput.style.backgroundColor = (type === 'value_update') ? '#fff' : '#eee';
+            priceInput.style.color = (type === 'value_update') ? '#333' : '#555';
 
             if (type === 'value_update') {
-                document.getElementById('lbl-p1').innerText = '最新現價';
+                document.getElementById('lbl-p1').innerText = '最新單現價';
                 document.getElementById('lbl-p2').innerText = '現有總股數';
-                sharesInput.placeholder = "非必填";
+                document.getElementById('lbl-amt').innerText = '或改填總市值';
+                priceInput.placeholder = "單價";
+                sharesInput.placeholder = "選填";
+                amtInput.placeholder = "選填";
             } else if (type === 'withdraw') {
-                document.getElementById('lbl-p1').innerText = '賣出單價';
+                document.getElementById('lbl-p1').innerText = '算出的單價';
                 document.getElementById('lbl-p2').innerText = '賣出股數';
+                document.getElementById('lbl-amt').innerText = '實際總拿回';
+                priceInput.placeholder = "自動計算";
                 sharesInput.placeholder = "股數";
+                amtInput.placeholder = "總額";
             } else {
-                document.getElementById('lbl-p1').innerText = '買入單價';
+                document.getElementById('lbl-p1').innerText = '算出的單價';
                 document.getElementById('lbl-p2').innerText = '買入股數';
+                document.getElementById('lbl-amt').innerText = '實際總扣款';
+                priceInput.placeholder = "自動計算";
                 sharesInput.placeholder = "股數";
+                amtInput.placeholder = "總額";
             }
         }
 
-        function calcTotal() {
+        // 🛠️ 核心修改：用總額與股數反推單價
+        function calcPrice() {
             var type = document.getElementById('form-type').value;
-            var price = parseFloat(document.getElementById('form-price').value) || 0;
             var shares = parseFloat(document.getElementById('form-shares').value) || 0;
+            var amount = parseFloat(document.getElementById('form-amount').value) || 0;
+            var priceInput = document.getElementById('form-price');
+            
             if (type !== 'value_update') {
-                document.getElementById('form-amount').value = (price * shares).toFixed(2);
+                if (shares > 0 && amount > 0) {
+                    priceInput.value = (amount / shares).toFixed(4);
+                } else {
+                    priceInput.value = '';
+                }
             } else {
-                if(shares > 0) document.getElementById('form-amount').value = (price * shares).toFixed(2);
+                // 市值更新模式：若填寫現價與總股數，則自動連動總市值
+                var price = parseFloat(priceInput.value) || 0;
+                if (shares > 0 && price > 0 && amount === 0) {
+                    document.getElementById('form-amount').value = (price * shares).toFixed(2);
+                }
             }
         }
 
@@ -269,21 +297,27 @@
             var target = document.getElementById('form-target').value.trim();
             var date = document.getElementById('form-date').value;
             var type = document.getElementById('form-type').value;
-            var price = parseFloat(document.getElementById('form-price').value) || 0;
             var shares = parseFloat(document.getElementById('form-shares').value) || 0;
             var amount = parseFloat(document.getElementById('form-amount').value) || 0;
+            var price = parseFloat(document.getElementById('form-price').value) || 0;
             var desc = document.getElementById('form-desc').value.trim();
 
             if (!target) return alert('請輸入投資標的名稱');
             if (!date) return alert('請選擇日期');
-            if (amount <= 0 && price <= 0) return alert('請輸入有效金額或單價');
+            
+            if (type !== 'value_update') {
+                if (shares <= 0 || amount <= 0) return alert('請輸入有效的股數與總金額');
+                price = amount / shares;
+            } else {
+                if (amount <= 0 && price <= 0) return alert('請填寫最新現價或總市值');
+            }
 
             var current_value = 0;
             if (type === 'withdraw') { 
                 amount = -Math.abs(amount); 
                 shares = -Math.abs(shares);
             } else if (type === 'value_update') { 
-                current_value = amount > 0 ? amount : price; 
+                current_value = amount > 0 ? amount : (price * (shares || 1)); 
                 amount = 0; 
             }
 
@@ -404,16 +438,16 @@
 
                 var detailStr = '';
                 if (rowData.transaction_type !== 'value_update' && rowData.price > 0) {
-                    detailStr = '價格: $' + rowData.price + ' | 股數: ' + Math.abs(rowData.shares);
-                } else if (rowData.transaction_type === 'value_update' && rowData.price > 0) {
-                    detailStr = '現價: $' + rowData.price + (rowData.shares > 0 ? ' | 總股數: ' + rowData.shares : '');
+                    detailStr = '總額: ' + displayAmt + ' | 股數: ' + Math.abs(rowData.shares) + ' | 成本單價: $' + rowData.price.toFixed(2);
+                } else if (rowData.transaction_type === 'value_update') {
+                    detailStr = rowData.price > 0 ? '填寫現價: $' + rowData.price.toFixed(2) : '直接更新總值';
                 }
-                if (rowData.description) { detailStr += (detailStr ? ' | ' : '') + rowData.description; }
+                if (rowData.description) { detailStr += ' | ' + rowData.description; }
 
                 item.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
                     '<div>' +
                         '<div><span class="tag">' + rowData.target + '</span> ' + rowData.date + ' <span class="badge" style="background-color:' + badgeBg + '">' + typeStr + '</span></div>' +
-                        '<div style="font-size:12px; color:#666666; margin-top:3px;">' + (detailStr || '無備註') + '</div>' +
+                        '<div style="font-size:12px; color:#666666; margin-top:3px;">' + detailStr + '</div>' +
                     '</div>' +
                     '<div style="display:flex; align-items:center; gap:8px;">' +
                         '<span style="font-weight:bold;">' + displayAmt + '</span>' +
