@@ -49,7 +49,7 @@
         
         <div class="box">
             <div class="grid-2">
-                <div><label>庫存總市值</label><div id="stat-value" class="dash-val" style="color:var(--primary)">$0</div></div>
+                <div><label>庫存總市值 (現價計算)</label><div id="stat-value" class="dash-val" style="color:var(--primary)">$0</div></div>
                 <div><label>庫存總成本</label><div id="stat-net" class="dash-val">$0</div></div>
             </div>
             <div id="stat-roi" style="margin-top:10px; font-weight:bold; font-size: 16px;">未實現: $0 (0%)</div>
@@ -142,7 +142,7 @@
                 .filter(r => r.user === user && r.date <= untilDate)
                 .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-            var inventory = {}; // 存放每一筆買進的隊列 { '00675L': [ {shares: 100, costPerShare: 50}, ... ] }
+            var inventory = {}; // 存放每一筆買進的隊列
             var realizedProfit = 0;
 
             sortedRecs.forEach(r => {
@@ -152,23 +152,20 @@
                     let sharesToSell = r.shares;
                     let sellPrice = r.amount / r.shares;
                     
-                    // 從隊列最前面開始扣除 (FIFO)
-                    while (sharesToSell > 0 && inventory[r.target].length > 0) {
+                    // 加入微小閾值防止浮點數碎股誤差造成的死鎖
+                    while (sharesToSell > 0.00001 && inventory[r.target].length > 0) {
                         let firstBatch = inventory[r.target][0];
                         if (firstBatch.shares <= sharesToSell) {
-                            // 這批貨全賣掉
                             realizedProfit += (sellPrice - firstBatch.costPerShare) * firstBatch.shares;
                             sharesToSell -= firstBatch.shares;
-                            inventory[r.target].shift(); // 移除這批
+                            inventory[r.target].shift(); 
                         } else {
-                            // 只賣掉這批的一部分
                             realizedProfit += (sellPrice - firstBatch.costPerShare) * sharesToSell;
                             firstBatch.shares -= sharesToSell;
                             sharesToSell = 0;
                         }
                     }
                 } else {
-                    // 買進：加入隊列
                     inventory[r.target].push({
                         shares: r.shares,
                         costPerShare: r.amount / r.shares
@@ -176,7 +173,6 @@
                 }
             });
 
-            // 計算當前庫存狀態
             var currentPortfolio = {};
             for (let target in inventory) {
                 let totalShares = 0;
@@ -185,10 +181,10 @@
                     totalShares += batch.shares;
                     totalCost += batch.shares * batch.costPerShare;
                 });
-                if (totalShares > 0) {
+                if (totalShares > 0.00001) {
                     currentPortfolio[target] = {
                         shares: totalShares,
-                        avgCost: totalCost / totalShares // 剩餘持股的平均成本
+                        avgCost: totalCost / totalShares 
                     };
                 }
             }
@@ -249,9 +245,7 @@
             });
         }
 
-        // 初始化與其他共用功能
         function init() {
-            // 自動修補 type: deposit 舊資料
             records.forEach(r => { if(!r.type || r.type === 'deposit') r.type = 'BUY'; });
             saveAll();
             updateUserDropdown();
@@ -268,6 +262,7 @@
 
         function quickSave() {
             var user = document.getElementById('user-select').value;
+            if(!user) return alert('請先前往設定建立帳戶');
             var type = document.getElementById('f-type').value;
             var target = document.getElementById('f-target').value.toUpperCase().trim();
             var date = document.getElementById('f-date').value;
@@ -330,6 +325,7 @@
                 </div>`).join('') : '<p style="color:gray;text-align:center;">此日期無持股</p>';
         }
 
+        // ✨ 修正後的儲存快照函式：補錄「今天」的價格時，會同步寫回現價資料庫
         function saveHistoryPoint() {
             var user = document.getElementById('user-select').value;
             var date = document.getElementById('sync-history-date').value;
@@ -337,17 +333,27 @@
             var dayVal = 0; var dayCost = 0;
             var res = calculateFIFO(user, date);
             var port = res.currentPortfolio;
+            
+            if (!marketPrices[user]) marketPrices[user] = {};
+            // 檢查補錄的日期是否為今天
+            var isToday = (date === new Date().toISOString().split('T')[0]);
+
             for(let input of inputs) {
                 var p = parseFloat(input.value) || 0;
                 var code = input.dataset.code;
                 dayVal += port[code].shares * p;
                 dayCost += port[code].shares * port[code].avgCost;
+                
+                // 如果是今天，同步將價格寫入 marketPrices 現價庫
+                if (isToday) {
+                    marketPrices[user][code] = p;
+                }
             }
             if(!assetHistory[user]) assetHistory[user] = [];
             var exist = assetHistory[user].findIndex(h => h.date === date);
             var snap = { date, value: Math.round(dayVal), cost: Math.round(dayCost) };
             if(exist > -1) assetHistory[user][exist] = snap; else assetHistory[user].push(snap);
-            saveAll(); render(); alert('快照儲存成功！');
+            saveAll(); render(); alert('快照與今日市價已同步儲存成功！');
         }
 
         init();
